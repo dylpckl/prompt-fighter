@@ -125,7 +125,9 @@ export default function LeaderboardPage() {
                     <span style={{ color: t.faint }}>–</span>
                     <span style={{ color: f.losses > 0 ? t.accent : t.faint }}>{f.losses}</span>
                   </span>
-                  <span style={{ ...label, fontSize: 9, color: t.faint }}>{rate}%</span>
+                  <span style={{ ...label, fontSize: 9, color: t.faint }}>
+                    {rate}%{f.favorites > 0 && ` · ${f.favorites} fav`}
+                  </span>
                 </span>
               </Link>
             )

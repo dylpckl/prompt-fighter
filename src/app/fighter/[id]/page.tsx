@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
 import { Sprite } from '@/components/Sprite'
+import { FavoriteButton } from '@/components/FavoriteButton'
 import { FighterPanel } from '@/components/FighterPanel'
 import { fetchFighter } from '@/lib/api'
 import type { Fighter } from '@/lib/engine/types'
@@ -116,6 +117,8 @@ export default function FighterDetailPage() {
           )}
         </span>
       </div>
+
+      <FavoriteButton fighterId={fighter.id} count={fighter.favorites} />
 
       <button onClick={() => router.push('/leaderboard')} style={button('ghost')}>
         Back to leaderboard

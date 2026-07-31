@@ -158,7 +158,21 @@ const PRIVATE_FIGHTER_KEYS = ['session_id', 'prompts'] as const
 export function hydrateFighter(row: unknown): Fighter {
   const raw = { ...((row ?? {}) as Fighter) }
   for (const key of PRIVATE_FIGHTER_KEYS) delete (raw as Record<string, unknown>)[key]
-  return { ...raw, stats: normalizeStats(raw.stats) }
+  return { ...raw, stats: normalizeStats(raw.stats), favorites: normalizeFavorites(raw.favorites) }
+}
+
+/**
+ * The favorite count on the way out. A whole number, never negative.
+ *
+ * The column is `integer not null default 0` with a check constraint, so this is
+ * belt-and-braces for the same case `normalizeStats` covers: a row read before
+ * migration 0005 has no such column at all, and an `undefined` reaching the sim
+ * would multiply the crowd meter by NaN and poison it all the way to the client.
+ * Absent reads as no support, which is what an unfavorited fighter is.
+ */
+export function normalizeFavorites(input: unknown): number {
+  const n = Math.floor(Number(input))
+  return Number.isFinite(n) ? Math.max(0, n) : 0
 }
 
 function cleanName(input: unknown, fallback: string, maxChars: number): string {

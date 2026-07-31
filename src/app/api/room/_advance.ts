@@ -48,8 +48,14 @@ export interface MatchRow {
   ends_at: string | null
 }
 
+/**
+ * Favorites are carried in because the crowd meter reads them. They are read
+ * once, when the match is claimed and simulated — the whole fight is resolved
+ * and stored right there, so a favorite arriving while the bracket is on screen
+ * lands on the next match rather than rewriting one already playing.
+ */
 function core(f: Fighter): FighterCore {
-  return { name: f.name, stats: f.stats, moves: f.moves, flaw: f.flaw }
+  return { name: f.name, stats: f.stats, moves: f.moves, flaw: f.flaw, favorites: f.favorites }
 }
 
 /**

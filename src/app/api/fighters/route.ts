@@ -21,7 +21,7 @@ export async function GET(req: Request) {
 
     const { data, error } = await supabaseAdmin()
       .from('fighters')
-      .select('id, name, title, sprite, wins, losses, created_at')
+      .select('id, name, title, sprite, wins, losses, favorites, created_at')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: false })
       .limit(MAX_ROSTER)
