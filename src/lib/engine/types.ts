@@ -71,6 +71,8 @@ export interface TurnEvent {
   missed: boolean
   /** HP of both sides *after* this action resolves. */
   hp: Record<Side, number>
+  /** Signature-meter charge of both sides *after* this action resolves. */
+  meter: Record<Side, number>
   text: string
 }
 
@@ -93,3 +95,5 @@ export const STAT_MIN = 3
 export const STAT_MAX = 12
 export const SPRITE_SIZE = 16
 export const PALETTE_SIZE = 8
+/** Actions banked before the signature fires. Mirrors the sim; drives the UI. */
+export const METER_TO_SPECIAL = 3

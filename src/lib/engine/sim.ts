@@ -1,10 +1,9 @@
 import { chance, makeRng, range } from './rng'
 import { hesitateText, narrate, selfHarmText, stunnedText } from './narrate'
+import { METER_TO_SPECIAL } from './types'
 import type { FighterCore, Move, SimResult, Side, TurnEvent } from './types'
 
 const MAX_ACTIONS_PER_SIDE = 14
-/** Actions banked before the signature move fires. */
-const METER_TO_SPECIAL = 3
 const DAMAGE_COEFFICIENT = 7
 const OVERHEAT_COST = 8
 const STAMINA_COST = 4
@@ -67,6 +66,7 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
   let winner: Side | null = null
 
   const snapshot = () => ({ a: state.a.hp, b: state.b.hp })
+  const meterSnapshot = () => ({ a: state.a.meter, b: state.b.meter })
 
   const push = (
     actor: Side,
@@ -77,7 +77,18 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
     missed: boolean,
     text: string,
   ) => {
-    log.push({ turn: ++turn, actor, move, effect, damage, heal, missed, hp: snapshot(), text })
+    log.push({
+      turn: ++turn,
+      actor,
+      move,
+      effect,
+      damage,
+      heal,
+      missed,
+      hp: snapshot(),
+      meter: meterSnapshot(),
+      text,
+    })
   }
 
   outer: for (let round = 0; round < MAX_ACTIONS_PER_SIDE; round++) {

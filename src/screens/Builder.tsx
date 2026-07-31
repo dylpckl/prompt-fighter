@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PROMPT_MAX_CHARS } from '@/lib/engine/types'
 import type { FighterPrompts } from '@/lib/engine/types'
 import { button, label, panel, t } from '@/theme'
@@ -20,7 +20,19 @@ interface Props {
 
 export function Builder({ onSubmit, busy, error }: Props) {
   const [prompts, setPrompts] = useState<FighterPrompts>(EMPTY)
+  const [elapsed, setElapsed] = useState(0)
   const complete = SLOTS.every(({ key }) => prompts[key].trim().length > 0)
+
+  // A counter is the one honest progress signal available — it proves the
+  // request is still alive without inventing a percentage.
+  useEffect(() => {
+    if (!busy) {
+      setElapsed(0)
+      return
+    }
+    const id = setInterval(() => setElapsed((s) => s + 1), 1000)
+    return () => clearInterval(id)
+  }, [busy])
 
   return (
     <form
@@ -84,9 +96,64 @@ export function Builder({ onSubmit, busy, error }: Props) {
         </p>
       )}
 
-      <button type="submit" disabled={!complete || busy} style={button()}>
-        {busy ? 'Forging…' : 'Create fighter'}
-      </button>
+      <div style={{ display: 'grid', gap: 10 }}>
+        <button
+          type="submit"
+          disabled={!complete || busy}
+          className={busy ? 'forging' : undefined}
+          style={button()}
+        >
+          {busy ? 'Forging' : 'Create fighter'}
+        </button>
+
+        {busy && <Forging seconds={elapsed} />}
+      </div>
     </form>
+  )
+}
+
+function Forging({ seconds }: { seconds: number }) {
+  return (
+    <div style={{ display: 'grid', gap: 8, animation: 'fadeUp 200ms ease-out' }}>
+      <div
+        style={{
+          position: 'relative',
+          height: 3,
+          background: t.panelHi,
+          border: `1px solid ${t.line}`,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            width: '24%',
+            background: t.accent,
+            animation: 'sweep 1.3s ease-in-out infinite',
+          }}
+        />
+      </div>
+
+      <p style={{ ...label, margin: 0, textAlign: 'center', color: t.dim }}>
+        Forging{seconds > 0 ? ` · ${seconds}s` : ''}
+      </p>
+
+      {seconds >= 20 && (
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            color: t.faint,
+            textAlign: 'center',
+            lineHeight: 1.5,
+            animation: 'fadeUp 200ms ease-out',
+          }}
+        >
+          Taking longer than usual. It gives up at 60 seconds.
+        </p>
+      )}
+    </div>
   )
 }
