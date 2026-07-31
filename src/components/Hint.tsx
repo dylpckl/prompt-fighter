@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { t } from '@/theme'
 
 const TOOLTIP_WIDTH = 220
@@ -17,8 +17,20 @@ const EDGE_GUTTER = 12
 export function Hint({ text, children }: { text: string; children: React.ReactNode }) {
   const tooltipId = useId()
   const wrapRef = useRef<HTMLSpanElement>(null)
+  const wasTouch = useRef(false)
   const [open, setOpen] = useState(false)
   const [alignRight, setAlignRight] = useState(false)
+
+  // One tap elsewhere closes it. Without this a touch-opened tooltip has no
+  // dismissal at all — there's no pointerleave on a finger — so they stack up.
+  useEffect(() => {
+    if (!open) return
+    const close = (e: Event) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [open])
 
   /**
    * Decide placement from the trigger's own rect *before* showing, so the
@@ -50,12 +62,18 @@ export function Hint({ text, children }: { text: string; children: React.ReactNo
       onPointerLeave={(e) => {
         if (e.pointerType !== 'touch') setOpen(false)
       }}
+      // Record the pointer type here, but act on click. pointerdown fires the
+      // moment a finger lands — including the finger that's about to scroll —
+      // so opening here meant scrolling past a hint popped it open. A click
+      // only lands if the touch stayed put.
       onPointerDown={(e) => {
-        if (e.pointerType === 'touch') {
-          e.stopPropagation()
-          if (open) setOpen(false)
-          else show()
-        }
+        wasTouch.current = e.pointerType === 'touch'
+      }}
+      onClick={(e) => {
+        if (!wasTouch.current) return
+        e.stopPropagation()
+        if (open) setOpen(false)
+        else show()
       }}
       onFocus={show}
       onBlur={() => setOpen(false)}

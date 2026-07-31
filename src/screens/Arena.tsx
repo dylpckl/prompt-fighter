@@ -3,6 +3,7 @@ import type { Fighter } from '@/lib/engine/types'
 import type { FightResult } from '@/lib/api'
 import { VICTORY_LABELS, victoryText } from '@/lib/engine/victory'
 import { FightStage, stageSide } from '@/components/FightStage'
+import { PREVIEW_MS, VersusPreview } from '@/screens/VersusPreview'
 import { button, label, panel, t } from '@/theme'
 
 const FIRST_BEAT_MS = 550
@@ -25,41 +26,62 @@ interface Props {
 export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props) {
   const { log, opponent, maxHp, winner, victory } = result
   const [step, setStep] = useState(0)
+  /** The matchup gets a beat before the bell. Solo only — a bracket broadcast
+   *  derives its beat from the server clock, so a local pause would desync it. */
+  const [previewing, setPreviewing] = useState(true)
 
-  // A fresh result means a fresh replay.
-  useEffect(() => setStep(0), [result])
+  // A fresh result means a fresh preview and a fresh replay.
+  useEffect(() => {
+    setStep(0)
+    setPreviewing(true)
+  }, [result])
+
+  useEffect(() => {
+    if (!previewing) return
+    const id = setTimeout(() => setPreviewing(false), PREVIEW_MS)
+    return () => clearTimeout(id)
+  }, [previewing, result])
 
   const finished = step >= log.length
 
   useEffect(() => {
-    if (finished) return
+    if (previewing || finished) return
     const id = setTimeout(() => setStep((s) => s + 1), step === 0 ? FIRST_BEAT_MS : BEAT_MS)
     return () => clearTimeout(id)
-  }, [step, finished])
+  }, [step, finished, previewing])
 
   const playerWon = winner === 'a'
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
-      <FightStage
-        a={stageSide(player)}
-        b={stageSide(opponent)}
-        log={log}
-        maxHp={maxHp}
-        step={step}
-      />
+      {previewing ? (
+        <VersusPreview a={player} b={opponent} />
+      ) : (
+        <FightStage
+          a={stageSide(player)}
+          b={stageSide(opponent)}
+          log={log}
+          maxHp={maxHp}
+          step={step}
+        />
+      )}
 
       <div className="arena__tail">
-        {!finished ? (
+        <div className="arena__tail-inner">
+        {previewing ? (
+          <button onClick={() => setPreviewing(false)} style={button()}>
+            Fight
+          </button>
+        ) : !finished ? (
           <button onClick={() => setStep(log.length)} style={button('ghost')}>
             Skip to result
           </button>
         ) : (
-          <div style={{ display: 'grid', gap: 12, animation: 'fadeUp 260ms ease-out' }}>
+          <div style={{ display: 'grid', gap: 10, animation: 'fadeUp 260ms ease-out' }}>
             <div
               style={{
                 ...panel,
-                padding: 16,
+                padding: 12,
                 textAlign: 'center',
                 borderColor: playerWon ? t.good : t.accent,
               }}
@@ -78,14 +100,17 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
 
             {error && <p style={{ margin: 0, fontSize: 13, color: t.accent }}>{error}</p>}
 
-            <button onClick={onAgain} disabled={busy} style={button()}>
-              {busy ? 'Finding opponent…' : 'Fight again'}
-            </button>
-            <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
-              Build someone new
-            </button>
+            <div className="arena__actions">
+              <button onClick={onAgain} disabled={busy} style={button()}>
+                {busy ? 'Finding…' : 'Fight again'}
+              </button>
+              <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
+                Build someone new
+              </button>
+            </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )
