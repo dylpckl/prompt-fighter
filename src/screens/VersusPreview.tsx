@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { SPIRIT_MAX, STAT_MAX } from '@/lib/engine/types'
 import type { Fighter, Stats } from '@/lib/engine/types'
 import { FLAW_HELP, MOVE_HELP, STAT_HELP } from '@/lib/explain'
@@ -46,7 +47,7 @@ export function VersusPreview({ a, b }: { a: Fighter; b: Fighter }) {
           }}
         >
           <Corner fighter={a} />
-          <span style={{ ...label, color: t.faint, paddingBottom: 18, flexShrink: 0 }}>vs</span>
+          <VsMark />
           <Corner fighter={b} align="right" />
         </div>
 
@@ -106,6 +107,66 @@ export function VersusPreview({ a, b }: { a: Fighter; b: Fighter }) {
         />
       </div>
     </div>
+  )
+}
+
+/**
+ * Hand-drawn rather than typeset. The fighters are 16×16 pixel art and the
+ * canvas already renders `image-rendering: pixelated`, so a bitmap sits in the
+ * same world; a font at this size would just be big text next to pixel art.
+ *
+ * The S drops two rows below the V, which is the arcade convention — a stacked
+ * pair reads as a logo, a staggered one reads as a collision.
+ */
+const VS_V = ['1...1', '1...1', '1...1', '1...1', '.1.1.', '.1.1.', '..1..'] as const
+const VS_S = ['.1111', '1....', '1....', '.111.', '....1', '....1', '1111.'] as const
+const VS_W = 14
+const VS_H = 10
+const VS_SCALE = 5
+
+function VsMark() {
+  const ref = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const ctx = ref.current?.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, VS_W, VS_H)
+
+    // Offset dark copy first, accent on top: a hard one-pixel drop shadow, the
+    // cheapest way to make flat pixels read as raised.
+    const paint = (dx: number, dy: number, fill: string) => {
+      ctx.fillStyle = fill
+      for (const [rows, ox, oy] of [
+        [VS_V, 0, 0],
+        [VS_S, 8, 2],
+      ] as const) {
+        rows.forEach((row, y) =>
+          [...row].forEach((cell, x) => {
+            if (cell === '1') ctx.fillRect(ox + x + dx, oy + y + dy, 1, 1)
+          }),
+        )
+      }
+    }
+
+    paint(1, 1, '#5a1c14')
+    paint(0, 0, t.accent)
+  }, [])
+
+  return (
+    <canvas
+      ref={ref}
+      className="vs__mark"
+      width={VS_W}
+      height={VS_H}
+      aria-label="versus"
+      role="img"
+      style={{
+        width: VS_W * VS_SCALE,
+        height: VS_H * VS_SCALE,
+        flexShrink: 0,
+        alignSelf: 'center',
+      }}
+    />
   )
 }
 

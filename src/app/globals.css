@@ -436,10 +436,22 @@ canvas {
   animation: flyInRight 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Fires as the two land, not on mount. */
+/* Fires as the two land, not on mount. `overflow: hidden` is load-bearing: the
+   VS slams in from 2× and a transform still counts toward document scroll
+   width, so without clipping the page gains a sideways scrollbar for a quarter
+   of a second. */
 .vs__panel {
   animation: impactShake 360ms ease-out 560ms both;
+  overflow: hidden;
 }
+
+/* The VS deliberately has no entrance of its own.
+   A scale-in was written and pulled: in testing the animation reported
+   `playState: running` with `currentTime` pinned at 0, leaving the mark parked
+   on its opening frame at 2× indefinitely — while the corner fly-ins beside it
+   advanced normally. Cause unexplained, so it isn't shipping: a VS stuck at
+   double size is a worse outcome than one that simply appears. The fly-in and
+   the panel shake already carry the moment. */
 
 .vs__countdown {
   height: 2px;
