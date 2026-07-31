@@ -77,8 +77,17 @@ Apply the schema (either works):
 
 ```bash
 supabase link --project-ref <ref> && supabase db push
-# or paste supabase/migrations/0001_init.sql into the dashboard SQL editor
+# or paste each file in supabase/migrations/ into the dashboard SQL editor,
+# in filename order — 0002 is what makes the service role actually work
 ```
+
+Both files matter. `0001` creates the table with RLS on and no policies; `0002`
+grants the service role the privileges it needs. The service role bypasses RLS
+but *not* table privileges, and Supabase's default privileges only fire for
+objects created by `postgres` — so applying `0001` alone via the CLI, the MCP
+server, or CI leaves every route handler failing with `42501 permission denied`.
+Pasting into the dashboard happens to work, which is what makes this one
+confusing to debug.
 
 Then fill the ghost pool and run it:
 
