@@ -7,7 +7,7 @@ import { getSessionId, getStoredFighterId, setStoredFighterId } from '@/lib/sess
 import { Builder } from '@/screens/Builder'
 import { Reveal } from '@/screens/Reveal'
 import { Arena } from '@/screens/Arena'
-import { label, t } from '@/theme'
+import { label } from '@/theme'
 
 type Screen = 'loading' | 'build' | 'reveal' | 'arena'
 
@@ -100,44 +100,31 @@ export default function Page() {
   }, [])
 
   return (
-    <div
-      style={{
-        minHeight: '100%',
-        display: 'flex',
-        justifyContent: 'center',
-        padding: '28px 18px 48px',
-      }}
-    >
-      <main style={{ width: '100%', maxWidth: 440 }}>
-        <p style={{ ...label, margin: '0 0 22px', textAlign: 'center', color: t.faint }}>
-          prompt fight
-        </p>
+    <>
+      {screen === 'loading' && <p style={{ ...label, textAlign: 'center' }}>Loading…</p>}
 
-        {screen === 'loading' && <p style={{ ...label, textAlign: 'center' }}>Loading…</p>}
+      {screen === 'build' && <Builder onSubmit={handleCreate} busy={busy} error={error} />}
 
-        {screen === 'build' && <Builder onSubmit={handleCreate} busy={busy} error={error} />}
+      {screen === 'reveal' && fighter && (
+        <Reveal
+          fighter={fighter}
+          onFight={handleFight}
+          onRebuild={handleRebuild}
+          busy={busy}
+          error={error}
+        />
+      )}
 
-        {screen === 'reveal' && fighter && (
-          <Reveal
-            fighter={fighter}
-            onFight={handleFight}
-            onRebuild={handleRebuild}
-            busy={busy}
-            error={error}
-          />
-        )}
-
-        {screen === 'arena' && fighter && result && (
-          <Arena
-            player={fighter}
-            result={result}
-            onAgain={handleFight}
-            onRebuild={handleRebuild}
-            busy={busy}
-            error={error}
-          />
-        )}
-      </main>
-    </div>
+      {screen === 'arena' && fighter && result && (
+        <Arena
+          player={fighter}
+          result={result}
+          onAgain={handleFight}
+          onRebuild={handleRebuild}
+          busy={busy}
+          error={error}
+        />
+      )}
+    </>
   )
 }

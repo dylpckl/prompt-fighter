@@ -1,8 +1,19 @@
-import type { Fighter, FighterPrompts, SimResult } from '@/lib/engine/types'
+import type { Fighter, FighterPrompts, SimResult, Sprite } from '@/lib/engine/types'
 
 export interface FightResult extends SimResult {
   opponent: Fighter
   seed: number
+}
+
+/** What the roster needs to draw a row — not the whole fighter. */
+export interface RosterEntry {
+  id: string
+  name: string
+  title: string
+  sprite: Sprite
+  wins: number
+  losses: number
+  created_at: string
 }
 
 /**
@@ -38,6 +49,10 @@ export function requestFight(sessionId: string, fighterId: string): Promise<Figh
     method: 'POST',
     body: JSON.stringify({ sessionId, fighterId }),
   })
+}
+
+export function fetchMyFighters(sessionId: string): Promise<{ fighters: RosterEntry[] }> {
+  return request(`/api/fighters?sessionId=${encodeURIComponent(sessionId)}`)
 }
 
 export async function fetchFighter(id: string): Promise<Fighter | null> {
