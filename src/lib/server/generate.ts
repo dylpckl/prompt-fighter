@@ -54,7 +54,10 @@ export async function generateFighter(prompts: FighterPrompts): Promise<Generate
       },
     ],
     output_config: {
-      effort: 'medium',
+      // Measured 40-55s per fighter at 'medium', against a 60s maxDuration —
+      // too close to the edge to ship. 'low' keeps generation well inside the
+      // limit; quality holds up fine because the schema does the hard part.
+      effort: 'low',
       format: { type: 'json_schema', schema: FIGHTER_SCHEMA },
     },
     messages: [{ role: 'user' as const, content: buildUserPrompt(prompts) }],
