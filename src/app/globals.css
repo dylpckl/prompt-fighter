@@ -136,9 +136,6 @@ canvas {
     margin-top: 0;
   }
 
-  .arena__stats-mobile {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 @media (min-width: 900px) {
@@ -192,13 +189,6 @@ canvas {
   position: relative;
   height: 148px;
   overflow: hidden;
-}
-
-/* Stat bars for both fighters, phone only — the desktop layout already shows
-   them in the flanking panels. */
-.arena__stats-mobile {
-  display: grid;
-  gap: 8px;
 }
 
 .battlefield__ground {
@@ -275,10 +265,6 @@ canvas {
 @media (min-width: 900px) {
   .arena__stat {
     display: block;
-  }
-
-  .arena__stats-mobile {
-    display: none;
   }
 
   .arena {

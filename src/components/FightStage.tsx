@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Fighter, Side, Sprite as SpriteData, TurnEvent } from '@/lib/engine/types'
 import { METER_TO_SPECIAL, SPRITE_SIZE } from '@/lib/engine/types'
 import { METER_HELP } from '@/lib/explain'
@@ -7,7 +7,7 @@ import { PRESSURE_THRESHOLD, PRESSURE_TRACKS } from '@/lib/engine/victory'
 import type { PressureTrack } from '@/lib/engine/victory'
 import { Sprite } from '@/components/Sprite'
 import { StatBlock } from '@/components/StatBlock'
-import { label, panel, t } from '@/theme'
+import { button, label, panel, t } from '@/theme'
 
 
 /**
@@ -59,6 +59,12 @@ export function FightStage({ a, b, log, maxHp, step }: Props) {
     return current.actor === 'a' ? { a: 0, b: clamped } : { a: clamped, b: 0 }
   }, [current, clamped])
 
+  /** Stats are a tap away rather than on screen — the preview already showed
+   *  the matchup, and mid-fight they're reference material competing with the
+   *  thing you're watching. A spectator has no `detail`, so no sheet to open. */
+  const [statsFor, setStatsFor] = useState<Side | null>(null)
+  const sheetFor = statsFor === 'a' ? a : statsFor === 'b' ? b : null
+
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       {/* DOM order is phone order: the fight, then the stat blocks that scroll
@@ -68,8 +74,22 @@ export function FightStage({ a, b, log, maxHp, step }: Props) {
           <div className="arena__field" style={{ display: 'grid', gap: 10 }}>
             <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <HealthBar name={a.name} hp={hp.a} max={maxHp.a} meter={meter.a} side="a" />
-                <HealthBar name={b.name} hp={hp.b} max={maxHp.b} meter={meter.b} side="b" />
+                <HealthBar
+                  name={a.name}
+                  hp={hp.a}
+                  max={maxHp.a}
+                  meter={meter.a}
+                  side="a"
+                  onShowStats={a.detail ? () => setStatsFor('a') : undefined}
+                />
+                <HealthBar
+                  name={b.name}
+                  hp={hp.b}
+                  max={maxHp.b}
+                  meter={meter.b}
+                  side="b"
+                  onShowStats={b.detail ? () => setStatsFor('b') : undefined}
+                />
               </div>
 
               {current && <PressureMeters a={current.pressure.a} b={current.pressure.b} />}
@@ -81,13 +101,6 @@ export function FightStage({ a, b, log, maxHp, step }: Props) {
           <BattleLog entries={log.slice(0, clamped)} names={{ a: a.name, b: b.name }} />
         </div>
 
-        {/* Phone only — the flanking panels below cover the same ground once
-            there's width for them. */}
-        <div className="arena__stats-mobile">
-          <FighterPanel side={a} />
-          <FighterPanel side={b} />
-        </div>
-
         <div className="arena__stat arena__stat--a">
           <FighterPanel side={a} />
         </div>
@@ -96,6 +109,41 @@ export function FightStage({ a, b, log, maxHp, step }: Props) {
           <FighterPanel side={b} />
         </div>
       </div>
+
+      {sheetFor && (
+        <div
+          onClick={() => setStatsFor(null)}
+          role="presentation"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            background: 'rgba(0,0,0,0.66)',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            padding: 12,
+            animation: 'fadeUp 160ms ease-out',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 440,
+              maxHeight: '82vh',
+              overflowY: 'auto',
+              display: 'grid',
+              gap: 10,
+            }}
+          >
+            <FighterPanel side={sheetFor} />
+            <button onClick={() => setStatsFor(null)} style={button('ghost')}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -400,12 +448,14 @@ function HealthBar({
   max,
   meter,
   side,
+  onShowStats,
 }: {
   name: string
   hp: number
   max: number
   meter: number
   side: Side
+  onShowStats?: () => void
 }) {
   const pct = Math.max(0, Math.min(100, (hp / max) * 100))
   const low = pct <= 30
@@ -414,9 +464,20 @@ function HealthBar({
 
   return (
     <div style={{ display: 'grid', gap: 6, justifyItems: alignRight ? 'end' : 'start' }}>
-      <span
+      {/* The name is the way into this fighter's stats — they're off screen
+          during the fight by design. Dotted underline is the same affordance
+          the tooltips use. */}
+      <button
+        onClick={onShowStats}
+        disabled={!onShowStats}
         style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
           fontSize: 13,
+          textAlign: alignRight ? 'right' : 'left',
+          cursor: onShowStats ? 'pointer' : 'default',
+          borderBottom: onShowStats ? `1px dotted ${t.faint}` : 'none',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -424,7 +485,7 @@ function HealthBar({
         }}
       >
         {name}
-      </span>
+      </button>
       <div
         style={{
           width: '100%',
