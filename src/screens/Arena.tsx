@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { Fighter, Side } from '@/lib/engine/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Fighter, Side, TurnEvent } from '@/lib/engine/types'
 import type { FightResult } from '@/lib/api'
 import { VICTORY_LABELS, victoryText } from '@/lib/engine/victory'
 import { Sprite } from '@/components/Sprite'
+import { StatBlock } from '@/components/StatBlock'
 import { button, label, panel, t } from '@/theme'
 
 const FIRST_BEAT_MS = 550
 const BEAT_MS = 1050
+
+const FIELD_HEIGHT = 240
+const GROUND_HEIGHT = 76
 
 interface Props {
   player: Fighter
@@ -43,88 +47,235 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
   const playerWon = winner === 'a'
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <div style={{ ...panel, padding: 16, display: 'grid', gap: 18 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <HealthBar fighter={player} hp={hp.a} max={maxHp.a} side="a" />
-          <HealthBar fighter={opponent} hp={hp.b} max={maxHp.b} side="b" />
+    <div style={{ display: 'grid', gap: 12 }}>
+      <div className="arena">
+        <div className="arena__stat arena__stat--a">
+          <FighterPanel fighter={player} />
         </div>
 
+        <div className="arena__field" style={{ display: 'grid', gap: 10 }}>
+          <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <HealthBar fighter={player} hp={hp.a} max={maxHp.a} side="a" />
+              <HealthBar fighter={opponent} hp={hp.b} max={maxHp.b} side="b" />
+            </div>
+
+            <Battlefield
+              player={player}
+              opponent={opponent}
+              hitKeys={hitKeys}
+              idle={!finished}
+            />
+          </div>
+        </div>
+
+        <div className="arena__stat arena__stat--b">
+          <FighterPanel fighter={opponent} />
+        </div>
+      </div>
+
+      <BattleLog entries={log.slice(0, step)} />
+
+      <div className="arena__tail">
+        {!finished ? (
+          <button onClick={() => setStep(log.length)} style={button('ghost')}>
+            Skip to result
+          </button>
+        ) : (
+          <div style={{ display: 'grid', gap: 12, animation: 'fadeUp 260ms ease-out' }}>
+            <div
+              style={{
+                ...panel,
+                padding: 16,
+                textAlign: 'center',
+                borderColor: playerWon ? t.good : t.accent,
+              }}
+            >
+              <p style={{ ...label, margin: 0, color: playerWon ? t.good : t.accent }}>
+                {playerWon ? 'Victory' : 'Defeat'} — {VICTORY_LABELS[victory]}
+              </p>
+              <p style={{ margin: '8px 0 0', fontSize: 15, lineHeight: 1.5 }}>
+                {victoryText(
+                  victory,
+                  playerWon ? player.name : opponent.name,
+                  playerWon ? opponent.name : player.name,
+                )}
+              </p>
+            </div>
+
+            {error && <p style={{ margin: 0, fontSize: 13, color: t.accent }}>{error}</p>}
+
+            <button onClick={onAgain} disabled={busy} style={button()}>
+              {busy ? 'Finding opponent…' : 'Fight again'}
+            </button>
+            <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
+              Build someone new
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * The sprites stand on the ground line rather than floating in a flex row. The
+ * inner width is capped so they close on each other instead of drifting to the
+ * far edges once the shell goes wide.
+ */
+function Battlefield({
+  player,
+  opponent,
+  hitKeys,
+  idle,
+}: {
+  player: Fighter
+  opponent: Fighter
+  hitKeys: Record<Side, number>
+  idle: boolean
+}) {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        height: FIELD_HEIGHT,
+        overflow: 'hidden',
+        border: `1px solid ${t.line}`,
+        borderRadius: 3,
+        background: `linear-gradient(180deg, #0e0e11 0%, ${t.panel} 100%)`,
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: GROUND_HEIGHT,
+          background: t.panelHi,
+          borderTop: `1px solid ${t.line}`,
+        }}
+      />
+
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: GROUND_HEIGHT }}>
         <div
           style={{
+            width: '100%',
+            maxWidth: 560,
+            margin: '0 auto',
+            padding: '0 24px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-end',
-            minHeight: 128,
-            padding: '0 4px',
           }}
         >
-          <Sprite sprite={player.sprite} scale={7} hitKey={hitKeys.a} idle={!finished} />
-          <Sprite sprite={opponent.sprite} scale={7} flip hitKey={hitKeys.b} idle={!finished} />
+          <Sprite sprite={player.sprite} scale={7} hitKey={hitKeys.a} idle={idle} />
+          <Sprite sprite={opponent.sprite} scale={7} flip hitKey={hitKeys.b} idle={idle} />
         </div>
       </div>
+    </div>
+  )
+}
+
+function FighterPanel({ fighter }: { fighter: Fighter }) {
+  return (
+    <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
+      <div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 15,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {fighter.name}
+        </p>
+        <p style={{ margin: '2px 0 0', fontSize: 12, color: t.dim }}>{fighter.title}</p>
+      </div>
+      <StatBlock fighter={fighter} />
+    </div>
+  )
+}
+
+/**
+ * Appends as the replay runs and sticks to the bottom, so the fight reads as a
+ * transcript building up rather than one line replacing another.
+ */
+function BattleLog({ entries }: { entries: TurnEvent[] }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [entries.length])
+
+  return (
+    <div style={{ ...panel, padding: 14, display: 'grid', gap: 10 }}>
+      <p style={{ ...label, margin: 0 }}>Battle log</p>
 
       <div
+        ref={ref}
         style={{
-          ...panel,
-          padding: 14,
-          minHeight: 92,
+          maxHeight: 200,
+          overflowY: 'auto',
           display: 'grid',
-          gap: 8,
+          gap: 6,
           alignContent: 'start',
         }}
       >
-        {current ? (
-          <p key={step} style={{ margin: 0, fontSize: 14, lineHeight: 1.5, animation: 'fadeUp 200ms ease-out' }}>
-            {current.text}
-          </p>
+        {entries.length === 0 ? (
+          <p style={{ margin: 0, fontSize: 13, color: t.faint }}>Waiting for the bell.</p>
         ) : (
-          <p style={{ ...label, margin: 0 }}>Fight</p>
-        )}
-
-        {step > 1 && (
-          <p style={{ margin: 0, fontSize: 12, color: t.faint, lineHeight: 1.5 }}>
-            {log[step - 2].text}
-          </p>
+          entries.map((e, i) => {
+            const last = i === entries.length - 1
+            return (
+              <div
+                key={`${e.turn}-${i}`}
+                style={{
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'baseline',
+                  animation: last ? 'fadeUp 200ms ease-out' : undefined,
+                }}
+              >
+                <span style={{ fontSize: 11, color: t.faint, width: 22, flexShrink: 0 }}>
+                  {e.turn}
+                </span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    color: last ? t.text : t.dim,
+                  }}
+                >
+                  {e.text}
+                </span>
+                {e.damage > 0 && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: e.actor === 'a' ? t.good : t.accent,
+                      marginLeft: 'auto',
+                      flexShrink: 0,
+                    }}
+                  >
+                    −{e.damage}
+                  </span>
+                )}
+                {e.heal > 0 && (
+                  <span
+                    style={{ fontSize: 11, color: t.good, marginLeft: 'auto', flexShrink: 0 }}
+                  >
+                    +{e.heal}
+                  </span>
+                )}
+              </div>
+            )
+          })
         )}
       </div>
-
-      {!finished ? (
-        <button onClick={() => setStep(log.length)} style={button('ghost')}>
-          Skip to result
-        </button>
-      ) : (
-        <div style={{ display: 'grid', gap: 12, animation: 'fadeUp 260ms ease-out' }}>
-          <div
-            style={{
-              ...panel,
-              padding: 16,
-              textAlign: 'center',
-              borderColor: playerWon ? t.good : t.accent,
-            }}
-          >
-            <p style={{ ...label, margin: 0, color: playerWon ? t.good : t.accent }}>
-              {playerWon ? 'Victory' : 'Defeat'} — {VICTORY_LABELS[victory]}
-            </p>
-            <p style={{ margin: '8px 0 0', fontSize: 15, lineHeight: 1.5 }}>
-              {victoryText(
-                victory,
-                playerWon ? player.name : opponent.name,
-                playerWon ? opponent.name : player.name,
-              )}
-            </p>
-          </div>
-
-          {error && <p style={{ margin: 0, fontSize: 13, color: t.accent }}>{error}</p>}
-
-          <button onClick={onAgain} disabled={busy} style={button()}>
-            {busy ? 'Finding opponent…' : 'Fight again'}
-          </button>
-          <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
-            Build someone new
-          </button>
-        </div>
-      )}
     </div>
   )
 }

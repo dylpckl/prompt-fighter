@@ -100,7 +100,7 @@ export default function Page() {
   }, [])
 
   return (
-    <>
+    <div className={screen === 'arena' ? 'shell shell--wide' : 'shell'}>
       {screen === 'loading' && <p style={{ ...label, textAlign: 'center' }}>Loading…</p>}
 
       {screen === 'build' && <Builder onSubmit={handleCreate} busy={busy} error={error} />}
@@ -125,6 +125,6 @@ export default function Page() {
           error={error}
         />
       )}
-    </>
+    </div>
   )
 }

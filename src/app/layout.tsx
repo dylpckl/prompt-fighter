@@ -19,10 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <Nav />
-        {/* The page shell lives here so every route sits in the same column. */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 18px 48px' }}>
-          <main style={{ width: '100%', maxWidth: 440 }}>{children}</main>
-        </div>
+        {/* Screens pick their own width via .shell / .shell--wide — the arena
+            needs more room than the rest. */}
+        <main style={{ padding: '24px 18px 48px' }}>{children}</main>
       </body>
     </html>
   )

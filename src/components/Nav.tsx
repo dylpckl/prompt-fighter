@@ -16,9 +16,14 @@ const link = {
  * the two are the same; on a wide window this reads as a header instead of a
  * floating centered pair.
  */
+const LINKS = [
+  { href: '/fighters', text: 'My fighters' },
+  { href: '/leaderboard', text: 'Leaderboard' },
+] as const
+
 export function Nav() {
   const pathname = usePathname()
-  const onRoster = pathname === '/fighters'
+  const onGame = pathname === '/'
 
   return (
     <header
@@ -40,12 +45,21 @@ export function Nav() {
           gap: 16,
         }}
       >
-        <Link href="/" style={{ ...link, color: onRoster ? t.dim : t.text }}>
+        <Link href="/" style={{ ...link, color: onGame ? t.text : t.dim }}>
           prompt fight
         </Link>
-        <Link href="/fighters" style={{ ...link, color: onRoster ? t.text : t.faint }}>
-          My fighters
-        </Link>
+
+        <nav style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          {LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              style={{ ...link, color: pathname === l.href ? t.text : t.faint }}
+            >
+              {l.text}
+            </Link>
+          ))}
+        </nav>
       </div>
     </header>
   )

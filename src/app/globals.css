@@ -36,6 +36,84 @@ canvas {
   image-rendering: crisp-edges;
 }
 
+/* Screens opt into a width. Everything is the narrow column except the arena,
+   which needs room for the battlefield and the two fighter panels. */
+.shell {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.shell--wide {
+  max-width: 1180px;
+}
+
+/* Phone: everything stacked, battlefield first. A stat panel needs ~200px
+   before the move names start blowing the grid out, so they only sit side by
+   side from 560px. Wide: panels flank the battlefield. */
+.arena {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+/* Grid children default to min-width:auto, which lets long move names push the
+   track wider than the viewport instead of wrapping. */
+.arena > * {
+  min-width: 0;
+}
+
+.arena__field {
+  order: -1;
+}
+
+@media (min-width: 560px) {
+  .arena {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .arena__field {
+    grid-column: 1 / -1;
+  }
+
+  .arena__stat--a {
+    grid-column: 1;
+  }
+
+  .arena__stat--b {
+    grid-column: 2;
+  }
+}
+
+@media (min-width: 900px) {
+  .arena {
+    grid-template-columns: 264px minmax(0, 1fr) 264px;
+  }
+
+  .arena__field {
+    grid-column: 2;
+    order: 0;
+  }
+
+  .arena__stat--a {
+    grid-column: 1;
+  }
+
+  .arena__stat--b {
+    grid-column: 3;
+  }
+}
+
+/* Result and controls stay readable even when the shell is wide. */
+.arena__tail {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+}
+
 @keyframes bob {
   0%,
   100% {

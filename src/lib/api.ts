@@ -13,7 +13,8 @@ export interface RosterEntry {
   sprite: Sprite
   wins: number
   losses: number
-  created_at: string
+  /** Present on the roster, absent on the leaderboard — neither view shows it. */
+  created_at?: string
 }
 
 /**
@@ -53,6 +54,11 @@ export function requestFight(sessionId: string, fighterId: string): Promise<Figh
 
 export function fetchMyFighters(sessionId: string): Promise<{ fighters: RosterEntry[] }> {
   return request(`/api/fighters?sessionId=${encodeURIComponent(sessionId)}`)
+}
+
+/** Ranked across the whole pool, not just this session. */
+export function fetchLeaderboard(): Promise<{ fighters: RosterEntry[] }> {
+  return request('/api/leaderboard')
 }
 
 export async function fetchFighter(id: string): Promise<Fighter | null> {
