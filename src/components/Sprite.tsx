@@ -30,7 +30,11 @@ export function Sprite({ sprite, scale = 8, flip = false, idle = true, hitKey = 
         ctx.fillRect(x, y, 1, 1)
       }
     }
-  }, [sprite])
+    // hitKey belongs here even though it isn't read above: the wrapper's `key`
+    // remounts this canvas on every hit, so we get handed a fresh blank
+    // element. Without the redraw the sprite vanishes the first time it takes
+    // damage and never comes back.
+  }, [sprite, hitKey])
 
   const size = SPRITE_SIZE * scale
 
