@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 import { Sprite } from '@/components/Sprite'
 import { fetchLeaderboard, type RosterEntry } from '@/lib/api'
@@ -60,8 +61,9 @@ export default function LeaderboardPage() {
             const rate = fights > 0 ? Math.round((f.wins / fights) * 100) : 0
 
             return (
-              <div
+              <Link
                 key={f.id}
+                href={`/fighter/${f.id}`}
                 style={{
                   ...panel,
                   borderColor: isMine ? t.accent : t.line,
@@ -69,6 +71,8 @@ export default function LeaderboardPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 12,
+                  textDecoration: 'none',
+                  color: 'inherit',
                 }}
               >
                 <span
@@ -123,7 +127,7 @@ export default function LeaderboardPage() {
                   </span>
                   <span style={{ ...label, fontSize: 9, color: t.faint }}>{rate}%</span>
                 </span>
-              </div>
+              </Link>
             )
           })}
         </div>

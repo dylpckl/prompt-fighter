@@ -1,5 +1,7 @@
 import { STAT_MAX } from '@/lib/engine/types'
-import type { Fighter } from '@/lib/engine/types'
+import type { Fighter, Stats } from '@/lib/engine/types'
+import { FLAW_HELP, MOVE_HELP, STAT_HELP } from '@/lib/explain'
+import { Hint } from '@/components/Hint'
 import { label, t } from '@/theme'
 
 const ROWS = [
@@ -7,7 +9,7 @@ const ROWS = [
   ['atk', 'Attack'],
   ['def', 'Defense'],
   ['spd', 'Speed'],
-] as const
+] as const satisfies ReadonlyArray<readonly [keyof Stats, string]>
 
 export function StatBlock({ fighter }: { fighter: Fighter }) {
   return (
@@ -16,7 +18,9 @@ export function StatBlock({ fighter }: { fighter: Fighter }) {
         const value = fighter.stats[key]
         return (
           <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ ...label, width: 66, flexShrink: 0 }}>{name}</span>
+            <span style={{ ...label, width: 66, flexShrink: 0 }}>
+              <Hint text={STAT_HELP[key]}>{name}</Hint>
+            </span>
             <div
               style={{
                 flex: 1,
@@ -50,7 +54,7 @@ export function StatBlock({ fighter }: { fighter: Fighter }) {
           <span style={{ ...label, width: 66, flexShrink: 0, color: t.accent }}>Flaw</span>
           <span style={{ fontSize: 13 }}>{fighter.flaw.name}</span>
           <span style={{ fontSize: 11, color: t.faint, marginLeft: 'auto' }}>
-            {fighter.flaw.effect}
+            <Hint text={FLAW_HELP[fighter.flaw.effect]}>{fighter.flaw.effect}</Hint>
           </span>
         </div>
       </div>
@@ -64,7 +68,9 @@ function MoveRow({ tag, move }: { tag: string; move: Fighter['moves'][number] })
       <span style={{ ...label, width: 66, flexShrink: 0 }}>{tag}</span>
       <span style={{ fontSize: 13 }}>{move.name}</span>
       <span style={{ fontSize: 11, color: t.faint, marginLeft: 'auto' }}>
-        {move.effect} · {move.power}
+        <Hint text={MOVE_HELP[move.effect]}>
+          {move.effect} · {move.power}
+        </Hint>
       </span>
     </div>
   )

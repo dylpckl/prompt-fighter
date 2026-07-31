@@ -114,6 +114,44 @@ canvas {
   gap: 12px;
 }
 
+/* Generation is one opaque model call, so there is no real percentage to show.
+   An indeterminate sweep is the honest affordance — it says "working", not
+   "63% done". */
+.forging {
+  position: relative;
+  overflow: hidden;
+  cursor: progress;
+}
+
+/* Outranks the global disabled dimming: the button stays lit while it works. */
+.forging:disabled {
+  opacity: 1;
+}
+
+.forging::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(430%);
+  }
+}
+
 @keyframes bob {
   0%,
   100% {

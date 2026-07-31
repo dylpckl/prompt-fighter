@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { METER_TO_SPECIAL } from '@/lib/engine/types'
 import type { Fighter, Side, TurnEvent } from '@/lib/engine/types'
 import type { FightResult } from '@/lib/api'
 import { Sprite } from '@/components/Sprite'
-import { StatBlock } from '@/components/StatBlock'
+import { FighterPanel } from '@/components/FighterPanel'
+import { Hint } from '@/components/Hint'
+import { METER_HELP } from '@/lib/explain'
 import { button, label, panel, t } from '@/theme'
 
 const FIRST_BEAT_MS = 550
@@ -37,6 +40,7 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
 
   const current = step > 0 ? log[step - 1] : null
   const hp = current ? current.hp : { a: maxHp.a, b: maxHp.b }
+  const meter = current ? current.meter : { a: 0, b: 0 }
 
   const hitKeys = useMemo(() => {
     if (!current || current.damage <= 0) return { a: 0, b: 0 }
@@ -55,8 +59,8 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
         <div className="arena__field" style={{ display: 'grid', gap: 10 }}>
           <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <HealthBar fighter={player} hp={hp.a} max={maxHp.a} side="a" />
-              <HealthBar fighter={opponent} hp={hp.b} max={maxHp.b} side="b" />
+              <HealthBar fighter={player} hp={hp.a} max={maxHp.a} meter={meter.a} side="a" />
+              <HealthBar fighter={opponent} hp={hp.b} max={maxHp.b} meter={meter.b} side="b" />
             </div>
 
             <Battlefield
@@ -173,28 +177,6 @@ function Battlefield({
   )
 }
 
-function FighterPanel({ fighter }: { fighter: Fighter }) {
-  return (
-    <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
-      <div>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 15,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {fighter.name}
-        </p>
-        <p style={{ margin: '2px 0 0', fontSize: 12, color: t.dim }}>{fighter.title}</p>
-      </div>
-      <StatBlock fighter={fighter} />
-    </div>
-  )
-}
-
 /**
  * Appends as the replay runs and sticks to the bottom, so the fight reads as a
  * transcript building up rather than one line replacing another.
@@ -280,16 +262,19 @@ function HealthBar({
   fighter,
   hp,
   max,
+  meter,
   side,
 }: {
   fighter: Fighter
   hp: number
   max: number
+  meter: number
   side: Side
 }) {
   const pct = Math.max(0, Math.min(100, (hp / max) * 100))
   const low = pct <= 30
   const alignRight = side === 'b'
+  const charged = meter >= METER_TO_SPECIAL
 
   return (
     <div style={{ display: 'grid', gap: 6, justifyItems: alignRight ? 'end' : 'start' }}>
@@ -324,9 +309,35 @@ function HealthBar({
           }}
         />
       </div>
-      <span style={{ fontSize: 11, color: t.faint }}>
-        {hp} / {max}
-      </span>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexDirection: alignRight ? 'row-reverse' : 'row',
+        }}
+      >
+        <span style={{ fontSize: 11, color: t.faint }}>
+          {hp} / {max}
+        </span>
+
+        <Hint text={METER_HELP}>
+          <span style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+            {Array.from({ length: METER_TO_SPECIAL }, (_, i) => (
+              <span
+                key={i}
+                style={{
+                  width: 10,
+                  height: 5,
+                  border: `1px solid ${i < meter ? (charged ? t.accent : t.warn) : t.line}`,
+                  background: i < meter ? (charged ? t.accent : t.warn) : 'transparent',
+                  transition: 'background 200ms ease, border-color 200ms ease',
+                }}
+              />
+            ))}
+          </span>
+        </Hint>
+      </div>
     </div>
   )
 }

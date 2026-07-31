@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { randomInt } from 'node:crypto'
 
 import { supabaseAdmin } from '@/lib/server/supabase'
+import { toPublicFighter } from '@/lib/server/fighters'
 import { simulate } from '@/lib/engine/sim'
 import { ValidationError, parseUuid } from '@/lib/engine/validate'
 import type { Fighter, FighterCore } from '@/lib/engine/types'
@@ -56,7 +57,10 @@ export async function POST(req: Request) {
     })
     if (recordError) throw recordError
 
-    return NextResponse.json({ ...result, seed, opponent })
+    // pick_ghost returns `setof public.fighters`, so the opponent arrives with
+    // every column — including the session_id that authorises a fight. Without
+    // this, one bout hands you a credential for someone else's fighter.
+    return NextResponse.json({ ...result, seed, opponent: toPublicFighter(opponent) })
   } catch (err) {
     if (err instanceof ValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 })
