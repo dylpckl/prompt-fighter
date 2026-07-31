@@ -3,7 +3,7 @@ import { randomInt } from 'node:crypto'
 
 import { supabaseAdmin } from '@/lib/server/supabase'
 import { simulate } from '@/lib/engine/sim'
-import { ValidationError, parseUuid } from '@/lib/engine/validate'
+import { FIGHTER_COLUMNS, ValidationError, hydrateFighter, parseUuid } from '@/lib/engine/validate'
 import type { Fighter, FighterCore } from '@/lib/engine/types'
 
 export const runtime = 'nodejs'
@@ -21,10 +21,12 @@ export async function POST(req: Request) {
     const db = supabaseAdmin()
 
     // Scoping by session id is what stops one player driving up another
-    // fighter's record.
+    // fighter's record. The filter is on `session_id`; the projection leaves it
+    // out, because a response that echoed it back would hand out the very thing
+    // this check relies on.
     const { data: challenger, error: challengerError } = await db
       .from('fighters')
-      .select('*')
+      .select(FIGHTER_COLUMNS)
       .eq('id', fighterId)
       .eq('session_id', sessionId)
       .maybeSingle()
@@ -39,16 +41,24 @@ export async function POST(req: Request) {
     })
     if (ghostError) throw ghostError
 
-    const opponent = (ghosts as Fighter[] | null)?.[0]
-    if (!opponent) {
+    const rawOpponent = (ghosts as Fighter[] | null)?.[0]
+    if (!rawOpponent) {
       return NextResponse.json(
         { error: 'Nobody in the pool yet. You are the first one in.' },
         { status: 409 },
       )
     }
 
+    // Normalized on the way out so the spirit stats the sim reads are the ones
+    // the client draws, even for rows written before that budget existed — and
+    // stripped, which matters most for the ghost: `pick_ghost` returns `setof
+    // fighters`, so the row arrives with another player's `session_id` on it and
+    // there is no projection to filter it. hydrateFighter is the filter.
+    const you = hydrateFighter(challenger)
+    const opponent = hydrateFighter(rawOpponent)
+
     const seed = randomInt(0, 2 ** 31)
-    const result = simulate(core(challenger as Fighter), core(opponent), seed)
+    const result = simulate(core(you), core(opponent), seed)
 
     const { error: recordError } = await db.rpc('record_result', {
       winner: result.winner === 'a' ? challenger.id : opponent.id,

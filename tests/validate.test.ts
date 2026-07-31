@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  FIGHTER_COLUMNS,
   ValidationError,
+  hydrateFighter,
   normalizeFlaw,
   normalizeMove,
   normalizeSprite,
@@ -9,6 +11,10 @@ import {
 } from '../src/lib/engine/validate'
 import {
   PALETTE_SIZE,
+  SPIRIT_DEFAULT,
+  SPIRIT_MAX,
+  SPIRIT_MIN,
+  SPIRIT_TOTAL,
   SPRITE_SIZE,
   STAT_MAX,
   STAT_MIN,
@@ -18,10 +24,14 @@ import {
 const sum = (s: { hp: number; atk: number; def: number; spd: number }) =>
   s.hp + s.atk + s.def + s.spd
 
+const spiritSum = (s: { cha: number; wil: number; arc: number; luk: number }) =>
+  s.cha + s.wil + s.arc + s.luk
+
 describe('normalizeStats', () => {
   it('keeps a valid spread untouched', () => {
     const stats = { hp: 9, atk: 8, def: 7, spd: 6 }
-    expect(normalizeStats(stats)).toEqual(stats)
+    // Spirit is a separate budget, so it gets backfilled; the body four survive.
+    expect(normalizeStats(stats)).toMatchObject(stats)
   })
 
   it('claws back a spread that overspends the budget', () => {
@@ -45,6 +55,171 @@ describe('normalizeStats', () => {
 
   it('survives a missing object entirely', () => {
     expect(sum(normalizeStats(undefined))).toBe(STAT_TOTAL)
+  })
+})
+
+describe('normalizeStats — spirit budget', () => {
+  const legalSpirit = { cha: 9, wil: 6, arc: 3, luk: 2 }
+  const legalBody = { hp: 9, atk: 8, def: 7, spd: 6 }
+
+  it('keeps a valid spirit spread untouched', () => {
+    expect(normalizeStats({ ...legalBody, ...legalSpirit })).toEqual({
+      ...legalBody,
+      ...legalSpirit,
+    })
+  })
+
+  it('claws back a spirit spread that overspends', () => {
+    const stats = normalizeStats({ ...legalBody, cha: 10, wil: 10, arc: 10, luk: 10 })
+    expect(spiritSum(stats)).toBe(SPIRIT_TOTAL)
+  })
+
+  it('tops up a spirit spread that underspends', () => {
+    const stats = normalizeStats({ ...legalBody, cha: 2, wil: 2, arc: 2, luk: 2 })
+    expect(spiritSum(stats)).toBe(SPIRIT_TOTAL)
+  })
+
+  it('clamps spirit values into range', () => {
+    const stats = normalizeStats({ ...legalBody, cha: 999, wil: -12, arc: 4, luk: 4 })
+    expect(spiritSum(stats)).toBe(SPIRIT_TOTAL)
+    for (const key of ['cha', 'wil', 'arc', 'luk'] as const) {
+      expect(stats[key]).toBeGreaterThanOrEqual(SPIRIT_MIN)
+      expect(stats[key]).toBeLessThanOrEqual(SPIRIT_MAX)
+    }
+  })
+
+  it('survives junk and missing spirit values', () => {
+    const stats = normalizeStats({ ...legalBody, cha: 'seven', wil: null, arc: NaN })
+    expect(spiritSum(stats)).toBe(SPIRIT_TOTAL)
+    for (const key of ['cha', 'wil', 'arc', 'luk'] as const) {
+      expect(Number.isInteger(stats[key])).toBe(true)
+      expect(stats[key]).toBeGreaterThanOrEqual(SPIRIT_MIN)
+      expect(stats[key]).toBeLessThanOrEqual(SPIRIT_MAX)
+    }
+  })
+
+  it('gives a legacy four-key fighter a legal flat spirit spread', () => {
+    // Exactly what comes back out of a fighters row written before spirit stats.
+    const stats = normalizeStats(legalBody)
+    expect(stats).toEqual({
+      ...legalBody,
+      cha: SPIRIT_DEFAULT,
+      wil: SPIRIT_DEFAULT,
+      arc: SPIRIT_DEFAULT,
+      luk: SPIRIT_DEFAULT,
+    })
+    expect(spiritSum(stats)).toBe(SPIRIT_TOTAL)
+  })
+
+  it('holds both budgets at once from nothing at all', () => {
+    const stats = normalizeStats(undefined)
+    expect(sum(stats)).toBe(STAT_TOTAL)
+    expect(spiritSum(stats)).toBe(SPIRIT_TOTAL)
+  })
+
+  it('does not let an overspent spirit budget touch the body total', () => {
+    const stats = normalizeStats({ ...legalBody, cha: 10, wil: 10, arc: 10, luk: 10 })
+    expect(sum(stats)).toBe(STAT_TOTAL)
+    expect(stats).toMatchObject(legalBody)
+    expect(spiritSum(stats)).toBe(SPIRIT_TOTAL)
+  })
+
+  it('does not let an overspent body budget touch the spirit total', () => {
+    const stats = normalizeStats({ hp: 12, atk: 12, def: 12, spd: 12, ...legalSpirit })
+    expect(sum(stats)).toBe(STAT_TOTAL)
+    expect(stats).toMatchObject(legalSpirit)
+    expect(spiritSum(stats)).toBe(SPIRIT_TOTAL)
+  })
+
+  it('does not let an underspent body budget fund spirit, or the reverse', () => {
+    const starved = normalizeStats({ hp: 3, atk: 3, def: 3, spd: 3, ...legalSpirit })
+    expect(sum(starved)).toBe(STAT_TOTAL)
+    expect(starved).toMatchObject(legalSpirit)
+
+    const drained = normalizeStats({ ...legalBody, cha: 2, wil: 2, arc: 2, luk: 2 })
+    expect(drained).toMatchObject(legalBody)
+    expect(spiritSum(drained)).toBe(SPIRIT_TOTAL)
+  })
+})
+
+describe('hydrateFighter', () => {
+  const row = {
+    id: 'abc',
+    name: 'Test',
+    title: 'The Tested',
+    moves: [{ name: 'Jab', power: 4, effect: 'damage' }],
+    flaw: { name: 'Glass', effect: 'glass' },
+    sprite: { palette: [], rows: [] },
+    wins: 3,
+    losses: 1,
+  }
+
+  it('leaves an already-normalized row byte-identical', () => {
+    // The read path runs on every fight, so it must not quietly restat anyone
+    // who was written since the spirit budget landed.
+    const stats = { hp: 9, atk: 8, def: 7, spd: 6, cha: 7, wil: 6, arc: 4, luk: 3 }
+    expect(hydrateFighter({ ...row, stats }).stats).toEqual(stats)
+  })
+
+  it('gives a pre-spirit row exactly what the sim already assumed', () => {
+    // sim.ts falls back to SPIRIT_DEFAULT for a missing key. If hydration
+    // disagreed, the stat panel would show numbers the fight never used.
+    const hydrated = hydrateFighter({ ...row, stats: { hp: 9, atk: 8, def: 7, spd: 6 } })
+    expect(hydrated.stats).toEqual({
+      hp: 9,
+      atk: 8,
+      def: 7,
+      spd: 6,
+      cha: SPIRIT_DEFAULT,
+      wil: SPIRIT_DEFAULT,
+      arc: SPIRIT_DEFAULT,
+      luk: SPIRIT_DEFAULT,
+    })
+  })
+
+  it('carries the rest of the row through untouched', () => {
+    const hydrated = hydrateFighter({ ...row, stats: {} })
+    expect(hydrated.name).toBe('Test')
+    expect(hydrated.wins).toBe(3)
+    expect(hydrated.sprite).toEqual({ palette: [], rows: [] })
+  })
+
+  /**
+   * `session_id` is the app's only authorization token — /api/fight and the room
+   * join both prove ownership with `.eq('session_id', …)` — while fighter ids
+   * are published by the leaderboard and by every room. A row that carries the
+   * token out next to the id it protects lets anyone enter, and then drive the
+   * record of, a fighter they do not own. Column projection is the first line;
+   * this is the one that also covers `pick_ghost`, which returns `setof
+   * fighters` and cannot be projected at the query.
+   */
+  it('never carries a session id or the raw prompts out of the database', () => {
+    const hydrated = hydrateFighter({
+      ...row,
+      stats: {},
+      session_id: '11111111-2222-3333-4444-555555555555',
+      prompts: { body: 'b', weapon: 'w', move: 'm', flaw: 'f' },
+    })
+
+    expect(Object.keys(hydrated)).not.toContain('session_id')
+    expect(Object.keys(hydrated)).not.toContain('prompts')
+    expect(JSON.stringify(hydrated)).not.toContain('5555')
+  })
+
+  it('does not mutate the row it was handed', () => {
+    const source = { ...row, stats: {}, session_id: 'keep-me' }
+    hydrateFighter(source)
+    expect(source.session_id).toBe('keep-me')
+  })
+
+  it('lists no private column in the projection', () => {
+    for (const key of ['session_id', 'prompts']) {
+      expect(FIGHTER_COLUMNS.split(',').map((c) => c.trim())).not.toContain(key)
+    }
+    // The fields the client actually draws have to survive it.
+    for (const key of ['id', 'name', 'title', 'stats', 'moves', 'flaw', 'sprite']) {
+      expect(FIGHTER_COLUMNS.split(',').map((c) => c.trim())).toContain(key)
+    }
   })
 })
 

@@ -6,12 +6,14 @@ import { button, label, panel, t } from '@/theme'
 interface Props {
   fighter: Fighter
   onFight: () => void
+  /** Bracket mode — a room full of people rather than one random opponent. */
+  onRooms: () => void
   onRebuild: () => void
   busy: boolean
   error: string | null
 }
 
-export function Reveal({ fighter, onFight, onRebuild, busy, error }: Props) {
+export function Reveal({ fighter, onFight, onRooms, onRebuild, busy, error }: Props) {
   const fought = fighter.wins + fighter.losses
 
   return (
@@ -36,6 +38,9 @@ export function Reveal({ fighter, onFight, onRebuild, busy, error }: Props) {
       <div style={{ display: 'grid', gap: 10 }}>
         <button onClick={onFight} disabled={busy} style={button()}>
           {busy ? 'Finding opponent…' : 'Find opponent'}
+        </button>
+        <button onClick={onRooms} disabled={busy} style={button('ghost')}>
+          Play with friends
         </button>
         <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
           Build someone new

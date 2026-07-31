@@ -1,15 +1,21 @@
 import {
+  BODY_KEYS,
   FLAW_EFFECTS,
   MOVE_EFFECTS,
   PALETTE_SIZE,
   PROMPT_MAX_CHARS,
   PROMPT_SLOTS,
+  SPIRIT_DEFAULT,
+  SPIRIT_KEYS,
+  SPIRIT_MAX,
+  SPIRIT_MIN,
+  SPIRIT_TOTAL,
   SPRITE_SIZE,
   STAT_MAX,
   STAT_MIN,
   STAT_TOTAL,
 } from './types'
-import type { FighterPrompts, Flaw, Move, Sprite, Stats } from './types'
+import type { Fighter, FighterPrompts, Flaw, Move, Sprite, Stats } from './types'
 
 export class ValidationError extends Error {}
 
@@ -46,28 +52,32 @@ function clamp(n: number, min: number, max: number): number {
 }
 
 /**
- * The stat budget is what stops "my fighter is unbeatable" from meaning
- * anything — the model can move points around, but never add them. We rescale
- * rather than reject so a slightly-off generation still produces a fighter.
+ * Pull four keys out of raw input and force them onto a budget.
+ *
+ * `fallback` is what a missing or unreadable key becomes before clamping. The
+ * body budget uses the floor (a junk stat should cost you), while the spirit
+ * budget uses its flat share, so a fighter row written before spirit stats
+ * existed reads back as a legal 5/5/5/5 instead of being dragged off shape.
  */
-export function normalizeStats(input: unknown): Stats {
-  const raw = (input ?? {}) as Record<string, unknown>
-  const keys = ['hp', 'atk', 'def', 'spd'] as const
-
+function normalizeBudget(
+  raw: Record<string, unknown>,
+  keys: readonly string[],
+  { min, max, total: budget, fallback }: { min: number; max: number; total: number; fallback: number },
+): number[] {
   const values = keys.map((k) => {
-    const n = Math.round(Number(raw[k]))
-    return Number.isFinite(n) ? clamp(n, STAT_MIN, STAT_MAX) : STAT_MIN
+    const value = raw[k]
+    if (value === undefined || value === null) return clamp(fallback, min, max)
+    const n = Math.round(Number(value))
+    return Number.isFinite(n) ? clamp(n, min, max) : fallback
   })
 
   let total = values.reduce((sum, n) => sum + n, 0)
 
   // Nudge one point at a time toward the budget, skipping stats already pinned.
   let guard = 0
-  while (total !== STAT_TOTAL && guard++ < 200) {
-    const up = total < STAT_TOTAL
-    const candidates = values
-      .map((v, i) => ({ v, i }))
-      .filter(({ v }) => (up ? v < STAT_MAX : v > STAT_MIN))
+  while (total !== budget && guard++ < 200) {
+    const up = total < budget
+    const candidates = values.map((v, i) => ({ v, i })).filter(({ v }) => (up ? v < max : v > min))
     if (candidates.length === 0) break
 
     // Take from the largest / give to the smallest so the shape survives.
@@ -76,7 +86,87 @@ export function normalizeStats(input: unknown): Stats {
     total += up ? 1 : -1
   }
 
-  return { hp: values[0], atk: values[1], def: values[2], spd: values[3] }
+  return values
+}
+
+/**
+ * The stat budgets are what stop "my fighter is unbeatable" from meaning
+ * anything — the model can move points around, but never add them. We rescale
+ * rather than reject so a slightly-off generation still produces a fighter.
+ *
+ * Body and spirit are normalized independently: overspending one can never
+ * quietly fund the other, and the physical balance is exactly what it always
+ * was. Fighters stored before spirit stats existed come back with a flat
+ * spread rather than an error.
+ */
+export function normalizeStats(input: unknown): Stats {
+  const raw = (input ?? {}) as Record<string, unknown>
+
+  const body = normalizeBudget(raw, BODY_KEYS, {
+    min: STAT_MIN,
+    max: STAT_MAX,
+    total: STAT_TOTAL,
+    fallback: STAT_MIN,
+  })
+  const spirit = normalizeBudget(raw, SPIRIT_KEYS, {
+    min: SPIRIT_MIN,
+    max: SPIRIT_MAX,
+    total: SPIRIT_TOTAL,
+    fallback: SPIRIT_DEFAULT,
+  })
+
+  return {
+    hp: body[0],
+    atk: body[1],
+    def: body[2],
+    spd: body[3],
+    cha: spirit[0],
+    wil: spirit[1],
+    arc: spirit[2],
+    luk: spirit[3],
+  }
+}
+
+/**
+ * The columns a fighter row is allowed to be selected with.
+ *
+ * `session_id` is conspicuously absent, and that is the point. It is the app's
+ * only authorization token — /api/fight and the room join check both prove
+ * ownership with a plain `.eq('session_id', …)` — while fighter *ids* are
+ * public by design: /api/leaderboard publishes the top 25 and the room GET
+ * publishes every entrant. Shipping the token next to the id it protects would
+ * let anyone enter, and then drive the record of, somebody else's fighter.
+ *
+ * `prompts` goes too. It is the author's raw text, nothing renders it, and a
+ * payload nobody reads is a payload that can't leak.
+ */
+export const FIGHTER_COLUMNS =
+  'id, name, title, stats, moves, flaw, sprite, wins, losses, created_at'
+
+/** Keys that must never reach a response, whatever the query asked for. */
+const PRIVATE_FIGHTER_KEYS = ['session_id', 'prompts'] as const
+
+/**
+ * A fighter row on the way *out* of the database: stripped, then normalized.
+ *
+ * The strip is belt to FIGHTER_COLUMNS' braces, and it is not redundant —
+ * `pick_ghost` returns `setof public.fighters`, so an RPC result arrives with
+ * every column on it and cannot be projected at the query. One function on the
+ * way out means one place to get it right.
+ *
+ * Stats are normalized on write, so for anything created since the spirit
+ * budget existed that half is a no-op — both budgets are idempotent once they
+ * are on-budget. It earns its place on the older rows, which have only the body
+ * four stored. The sim already treats a missing spirit key as ${SPIRIT_DEFAULT}
+ * so that it can't produce NaN, and without this the stat panel would draw four
+ * empty bars for the exact values the fight was decided on. Normalizing here
+ * means what the player is shown and what the sim read are the same numbers,
+ * whether or not migration 0003 has been applied yet.
+ */
+export function hydrateFighter(row: unknown): Fighter {
+  const raw = { ...((row ?? {}) as Fighter) }
+  for (const key of PRIVATE_FIGHTER_KEYS) delete (raw as Record<string, unknown>)[key]
+  return { ...raw, stats: normalizeStats(raw.stats) }
 }
 
 function cleanName(input: unknown, fallback: string, maxChars: number): string {

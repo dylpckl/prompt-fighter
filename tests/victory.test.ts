@@ -2,14 +2,27 @@ import { describe, expect, it } from 'vitest'
 import { simulate } from '../src/lib/engine/sim'
 import { makeRng } from '../src/lib/engine/rng'
 import {
+  PRESSURE_POOLS,
+  PRESSURE_TRACKS,
   VICTORY_LABELS,
   VICTORY_TYPES,
+  WEDDING_CHA,
+  classifyPressure,
   classifyVictory,
   victoryText,
 } from '../src/lib/engine/victory'
-import type { VictoryInput, VictorySideView } from '../src/lib/engine/victory'
-import { FLAW_EFFECTS, MOVE_EFFECTS, STAT_TOTAL } from '../src/lib/engine/types'
-import type { FighterCore, FlawEffect, MoveEffect } from '../src/lib/engine/types'
+import type { VictoryInput, VictorySideView, VictoryType } from '../src/lib/engine/victory'
+import {
+  FLAW_EFFECTS,
+  MOVE_EFFECTS,
+  SPIRIT_MAX,
+  SPIRIT_MIN,
+  SPIRIT_TOTAL,
+  STAT_MAX,
+  STAT_MIN,
+  STAT_TOTAL,
+} from '../src/lib/engine/types'
+import type { FighterCore, FlawEffect, MoveEffect, SpiritStats } from '../src/lib/engine/types'
 
 function side(overrides: Partial<VictorySideView> = {}): VictorySideView {
   return {
@@ -25,6 +38,7 @@ function side(overrides: Partial<VictorySideView> = {}): VictorySideView {
     atk: 8,
     def: 7,
     flaw: 'glass',
+    spirit: { cha: 5, wil: 5, arc: 5, luk: 5 },
     ...overrides,
   }
 }
@@ -39,6 +53,7 @@ function input(overrides: Partial<VictoryInput> = {}): VictoryInput {
     seed: PLAIN_SEED,
     finalBlow: { actor: 'a', effect: 'damage', damage: 12 },
     sides: { a: side(), b: side({ hp: 0 }) },
+    pressure: null,
     ...overrides,
   }
 }
@@ -148,22 +163,111 @@ describe('classifyVictory', () => {
     )
     expect(result).toBe('decision')
   })
+
+  it('reads a capped meter over every mechanical finish underneath it', () => {
+    // A textbook knockout on paper — but a meter capped, so that's the story.
+    const result = classifyVictory(input({ pressure: 'hex' }))
+    expect(PRESSURE_POOLS.hex).toContain(result)
+  })
+
+  it('takes the track from the sim rather than guessing at one', () => {
+    for (const track of PRESSURE_TRACKS) {
+      expect(PRESSURE_POOLS[track]).toContain(classifyVictory(input({ pressure: track })))
+    }
+  })
+})
+
+describe('classifyPressure', () => {
+  const plain: SpiritStats = { cha: 5, wil: 5, arc: 5, luk: 5 }
+
+  it('is stable for a given track, seed and pair of profiles', () => {
+    for (const seed of [1, 77, 4096, 90210]) {
+      expect(classifyPressure('crowd', seed, plain, plain)).toBe(
+        classifyPressure('crowd', seed, plain, plain),
+      )
+    }
+  })
+
+  it('always answers from the track that capped', () => {
+    for (const track of PRESSURE_TRACKS) {
+      for (let seed = 0; seed < 60; seed++) {
+        expect(PRESSURE_POOLS[track]).toContain(classifyPressure(track, seed, plain, plain))
+      }
+    }
+  })
+
+  it('reads two capped charmers as a wedding, whatever the roll says', () => {
+    const smitten: SpiritStats = { cha: WEDDING_CHA, wil: 4, arc: 4, luk: 4 }
+    for (let seed = 0; seed < 60; seed++) {
+      expect(classifyPressure('crowd', seed, smitten, smitten)).toBe('wedding')
+    }
+    // One-sided charm is just a win.
+    expect(classifyPressure('crowd', 3, smitten, { ...smitten, cha: 2 })).not.toBe('wedding')
+  })
+
+  it('separates two fighters who cap the same track on the same seed', () => {
+    const loud: SpiritStats = { cha: 10, wil: 4, arc: 3, luk: 3 }
+    const lucky: SpiritStats = { cha: 4, wil: 3, arc: 3, luk: 10 }
+    const outcomes = new Set([
+      classifyPressure('crowd', 9, loud, lucky),
+      classifyPressure('crowd', 9, lucky, loud),
+    ])
+    expect(outcomes.size).toBe(2)
+  })
+
+  it('leaves no pooled type dead', () => {
+    const seen = new Set<VictoryType>()
+    const profiles: SpiritStats[] = [
+      { cha: 10, wil: 2, arc: 4, luk: 4 },
+      { cha: 2, wil: 10, arc: 4, luk: 4 },
+      { cha: 4, wil: 4, arc: 10, luk: 2 },
+      { cha: 5, wil: 5, arc: 5, luk: 5 },
+    ]
+
+    for (const track of PRESSURE_TRACKS) {
+      for (let seed = 0; seed < 80; seed++) {
+        for (const winner of profiles) {
+          for (const loser of profiles) seen.add(classifyPressure(track, seed, winner, loser))
+        }
+      }
+    }
+
+    for (const track of PRESSURE_TRACKS) {
+      for (const type of PRESSURE_POOLS[track]) expect(seen).toContain(type)
+    }
+  })
 })
 
 describe('classification safety properties', () => {
-  function randomFighter(rng: () => number, name: string): FighterCore {
-    const values = [3, 3, 3, 3]
-    for (let i = 0; i < STAT_TOTAL - 12; i++) {
-      const candidates = values.map((v, idx) => ({ v, idx })).filter(({ v }) => v < 12)
+  /** Spend a budget one point at a time, respecting the per-stat ceiling. */
+  function spread(rng: () => number, min: number, max: number, total: number): number[] {
+    const values = [min, min, min, min]
+    for (let i = 0; i < total - min * 4; i++) {
+      const candidates = values.map((v, idx) => ({ v, idx })).filter(({ v }) => v < max)
       const pick = candidates[Math.floor(rng() * candidates.length)]
       values[pick.idx] += 1
     }
+    return values
+  }
+
+  function randomFighter(rng: () => number, name: string): FighterCore {
+    const values = spread(rng, STAT_MIN, STAT_MAX, STAT_TOTAL)
+    const spirit = spread(rng, SPIRIT_MIN, SPIRIT_MAX, SPIRIT_TOTAL)
     const effect = (): MoveEffect => MOVE_EFFECTS[Math.floor(rng() * MOVE_EFFECTS.length)]
     const flaw = (): FlawEffect => FLAW_EFFECTS[Math.floor(rng() * FLAW_EFFECTS.length)]
 
     return {
       name,
-      stats: { hp: values[0], atk: values[1], def: values[2], spd: values[3] },
+      stats: {
+        hp: values[0],
+        atk: values[1],
+        def: values[2],
+        spd: values[3],
+        cha: spirit[0],
+        wil: spirit[1],
+        arc: spirit[2],
+        luk: spirit[3],
+      },
       moves: [
         { name: 'Basic', power: 3 + Math.floor(rng() * 4), effect: effect() },
         { name: 'Special', power: 6 + Math.floor(rng() * 5), effect: effect() },
@@ -200,12 +304,113 @@ describe('classification safety properties', () => {
 
     for (let i = 0; i < 500; i++) {
       const result = simulate(randomFighter(rng, 'A'), randomFighter(rng, 'B'), i)
+
+      // A capped meter answers to its own track and to neither flag.
+      if (result.pressure) {
+        expect(result.decision).toBe(false)
+        expect(PRESSURE_POOLS[result.pressure]).toContain(result.victory)
+        continue
+      }
+
       // act_of_god and paperwork are deliberately outcome-agnostic.
       if (result.victory === 'act_of_god' || result.victory === 'paperwork') continue
 
       if (result.decision) expect(decisionOnly).toContain(result.victory)
       else expect(koOnly).toContain(result.victory)
     }
+  })
+
+  it('never reports a pressure type for a fight decided on health', () => {
+    const pooled = new Set<VictoryType>(PRESSURE_TRACKS.flatMap((t) => [...PRESSURE_POOLS[t]]))
+    const rng = makeRng(6060)
+
+    for (let i = 0; i < 500; i++) {
+      const result = simulate(randomFighter(rng, 'A'), randomFighter(rng, 'B'), i)
+      if (result.pressure) continue
+      expect(pooled.has(result.victory)).toBe(false)
+    }
+  })
+
+  it('sorts every declared type into exactly one pool, or none at all', () => {
+    const counts = new Map<string, number>()
+    for (const track of PRESSURE_TRACKS) {
+      for (const type of PRESSURE_POOLS[track]) {
+        expect(VICTORY_TYPES).toContain(type)
+        counts.set(type, (counts.get(type) ?? 0) + 1)
+      }
+    }
+    for (const [, n] of counts) expect(n).toBe(1)
+    // 15 physical reads, the rest pooled.
+    expect(VICTORY_TYPES.length - counts.size).toBe(15)
+  })
+
+  /**
+   * The tuning guard. Pressure is meant to be the exciting minority read, not
+   * the way most fights end — if a constant drifts, this is what notices.
+   */
+  it('keeps physical victories clearly dominant', () => {
+    const rng = makeRng(4242)
+    const seen = new Set<VictoryType>()
+    let pressureWins = 0
+    const fights = 3000
+
+    for (let i = 0; i < fights; i++) {
+      const result = simulate(randomFighter(rng, 'A'), randomFighter(rng, 'B'), i)
+      seen.add(result.victory)
+      if (result.pressure) pressureWins += 1
+    }
+
+    const share = pressureWins / fights
+    expect(share).toBeGreaterThan(0.03)
+    expect(share).toBeLessThan(0.2)
+    // Every track has to be live at this sample size.
+    for (const track of PRESSURE_TRACKS) {
+      expect(PRESSURE_POOLS[track].some((type) => seen.has(type))).toBe(true)
+    }
+  })
+
+  /**
+   * The guard above draws its spirit lines by scattering the budget, which is
+   * *not* the shape SYSTEM_PROMPT asks for — it tells the model to avoid flat
+   * spreads and to commit when the description commits. Tuning against scattered
+   * lines is how the mechanic ended up deciding half of all fights in practice
+   * while the sampled rate looked fine, so the committed shape gets its own
+   * guard: pressure may be common between two specialists, never the norm.
+   */
+  it('stays a minority read even between two committed specialists', () => {
+    const rng = makeRng(1717)
+    let pressureWins = 0
+    const fights = 3000
+
+    /** One track at the ceiling, whatever is left scattered over the other three. */
+    function committed(name: string): FighterCore {
+      const fighter = randomFighter(rng, name)
+      const values = [SPIRIT_MIN, SPIRIT_MIN, SPIRIT_MIN, SPIRIT_MIN]
+      const primary = Math.floor(rng() * 4)
+      values[primary] = SPIRIT_MAX
+
+      let left = SPIRIT_TOTAL - SPIRIT_MAX - SPIRIT_MIN * 3
+      while (left > 0) {
+        const candidates = values
+          .map((v, idx) => ({ v, idx }))
+          .filter(({ v, idx }) => idx !== primary && v < SPIRIT_MAX)
+        if (candidates.length === 0) break
+        values[candidates[Math.floor(rng() * candidates.length)].idx] += 1
+        left -= 1
+      }
+
+      const [cha, wil, arc, luk] = values
+      return { ...fighter, stats: { ...fighter.stats, cha, wil, arc, luk } }
+    }
+
+    for (let i = 0; i < fights; i++) {
+      if (simulate(committed('A'), committed('B'), i).pressure) pressureWins += 1
+    }
+
+    const share = pressureWins / fights
+    // Live, clearly — and still losing to the health bars more often than not.
+    expect(share).toBeGreaterThan(0.1)
+    expect(share).toBeLessThan(0.45)
   })
 
   it('gives every declared type a label and a line', () => {

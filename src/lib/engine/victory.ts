@@ -5,12 +5,17 @@
 // `winner` or `decision` — so adding a victory type can't change the outcome of
 // a fight, and every seed that existed before still resolves identically.
 //
+// The pressure section below is the one place that reads a mechanic rather than
+// inventing one: the sim decides whether a meter capped, this file only decides
+// what to call it. Same rule as ever — nothing here can flip a result.
+//
 // The flavour draws below come from their own RNG stream, seeded off the fight
 // seed but separate from it, for the same reason: consuming from the sim's
 // stream would shift every subsequent roll and silently rewrite history.
 
 import { makeRng } from './rng'
-import type { FlawEffect, Side } from './types'
+import { SPIRIT_MIN } from './types'
+import type { FlawEffect, Side, SpiritKey, SpiritStats } from './types'
 
 export const VICTORY_TYPES = [
   // Decisive
@@ -32,6 +37,36 @@ export const VICTORY_TYPES = [
   // Nobody's fault
   'act_of_god',
   'paperwork',
+  // Pressure: crowd. Won on presence, in front of witnesses.
+  'political',
+  'seduction',
+  'wedding',
+  'filibuster',
+  'roast',
+  'recruitment',
+  'endorsement',
+  'litigation',
+  'union',
+  'sermon',
+  'heckle',
+  // Pressure: hex. Won on weirdness.
+  'enchantment',
+  'curse',
+  'polymorph',
+  'banishment',
+  'possession',
+  'soul_trade',
+  'summoning',
+  'time_loop',
+  'dream',
+  'erasure',
+  // Pressure: fate. Won by circumstance, admin, or nobody in particular.
+  'nepotism',
+  'mistaken_identity',
+  'market_crash',
+  'existential',
+  'forfeit',
+  'no_contest',
 ] as const
 
 export type VictoryType = (typeof VICTORY_TYPES)[number]
@@ -53,6 +88,190 @@ export const VICTORY_LABELS: Record<VictoryType, string> = {
   hunger: 'Hunger',
   act_of_god: 'Act of God',
   paperwork: 'Paperwork',
+  political: 'Politics',
+  seduction: 'Seduction',
+  wedding: 'Wedding',
+  filibuster: 'Filibuster',
+  roast: 'Roast',
+  recruitment: 'Recruitment',
+  endorsement: 'Endorsement',
+  litigation: 'Litigation',
+  union: 'Union action',
+  sermon: 'Sermon',
+  heckle: 'Heckled out',
+  enchantment: 'Enchantment',
+  curse: 'Curse',
+  polymorph: 'Polymorph',
+  banishment: 'Banishment',
+  possession: 'Possession',
+  soul_trade: 'Soul trade',
+  summoning: 'Summoning',
+  time_loop: 'Time loop',
+  dream: 'Dream',
+  erasure: 'Erasure',
+  nepotism: 'Nepotism',
+  mistaken_identity: 'Mistaken identity',
+  market_crash: 'Market crash',
+  existential: 'Existential',
+  forfeit: 'Forfeit',
+  no_contest: 'No contest',
+}
+
+// ---------------------------------------------------------------------------
+// Pressure — the non-physical way to win.
+// ---------------------------------------------------------------------------
+
+/**
+ * Three meters that fill alongside HP. `cha` works the room, `arc` works the
+ * universe, `luk` works the paperwork — and the opponent's `wil` drags on all
+ * three at once. Cap a meter and the bout stops there and then, whatever the
+ * health bars say.
+ */
+export const PRESSURE_TRACKS = ['crowd', 'hex', 'fate'] as const
+
+export type PressureTrack = (typeof PRESSURE_TRACKS)[number]
+
+/** Which spirit stat pushes each track. `wil` is on the other side of all of them. */
+export const TRACK_SOURCE: Record<PressureTrack, SpiritKey> = {
+  crowd: 'cha',
+  hex: 'arc',
+  fate: 'luk',
+}
+
+/** Where a meter caps. 100 so a meter reads straight off as a percentage. */
+export const PRESSURE_THRESHOLD = 100
+
+/**
+ * Only what you spent *above the floor* pushes. `SPIRIT_MIN` is what a fighter
+ * has when the description gave the generator nothing to work with, so a track
+ * sitting on the floor is worth exactly nothing — provably, whatever the
+ * opponent's `wil` is. That keeps "this fight is purely physical" a property of
+ * the numbers rather than a tuning accident.
+ */
+export function pressurePush(source: number): number {
+  return Math.max(0, source - SPIRIT_MIN)
+}
+
+/**
+ * How hard `wil` leans back, as a fraction of what would otherwise accrue.
+ *
+ * Deliberately fractional rather than subtractive. Subtracting `wil` from the
+ * pusher's stat gave a dead zone with a hard edge: a fight only runs so many
+ * beats, so any deficit below a certain size could never cap a meter inside one,
+ * which made a large enough `wil` *absolute* immunity and switched the mechanic
+ * off for that bout entirely. That turned half the spirit budget into a binary
+ * hard counter to a mechanic worth a large slice of outcomes.
+ *
+ * A fraction can't do that. Resolve slows a meter — a lot, at the ceiling — but
+ * it never stops one, so pushing harder always buys something and stacking
+ * Resolve has honest diminishing returns instead of a cliff.
+ */
+export const WIL_SOFTENING = 4
+
+export function wilResistance(wil: number): number {
+  return WIL_SOFTENING / (WIL_SOFTENING + Math.max(0, wil - SPIRIT_MIN))
+}
+
+/**
+ * Points per beat per point of push, per track, before resistance and noise.
+ *
+ * A fight runs at most `MAX_ACTIONS_PER_SIDE` beats a side and most end well
+ * short of that on health, so these are set so that only a genuinely committed
+ * track — most of the budget in one place, against an opponent who did not buy
+ * Resolve — caps inside a bout. Retuned over 20k fights against *lopsided*
+ * spirit lines, which is the shape SYSTEM_PROMPT actually asks the model for;
+ * the previous constants were validated against near-uniform spreads, which the
+ * generator is explicitly told not to produce, and read far hotter in practice.
+ */
+export const TRACK_RATE: Record<PressureTrack, number> = {
+  crowd: 1.5,
+  hex: 1.46,
+  fate: 1.42,
+}
+
+/** Per-beat noise, so two identical stat lines don't cap on the same beat every time. */
+export const PRESSURE_JITTER_MIN = 0.8
+export const PRESSURE_JITTER_MAX = 1.2
+
+/**
+ * How receptive the room is *tonight*, drawn once per fight and applied to every
+ * meter on both sides. Per-beat jitter averages out over a bout and leaves each
+ * pair of spirit lines with a near-deterministic verdict; one fight-long draw is
+ * what turns "caps / never caps" into a probability. It is also what stops a
+ * maximal Resolve build from being arithmetically untouchable: on a hot night a
+ * committed pusher can still get there.
+ *
+ * Squared, so the distribution is bunched down at the quiet end with a thin tail
+ * up at the riot. That lets the *typical* night be cool enough to keep pressure
+ * a minority read without the hot nights being so rare they never happen — the
+ * two things a flat draw can't give you at once.
+ */
+export const PRESSURE_MOOD_MIN = 0.7
+export const PRESSURE_MOOD_MAX = 2.0
+
+export function pressureMood(roll: number): number {
+  return PRESSURE_MOOD_MIN + (PRESSURE_MOOD_MAX - PRESSURE_MOOD_MIN) * roll * roll
+}
+
+/** Salt for the jitter stream. The sim's own rng never sees a pressure draw. */
+export const PRESSURE_SALT = 0x9e3779b9
+
+/** Salt for the pool draw. Separate again, for the same reason. */
+export const PRESSURE_FLAVOUR_SALT = 0x2545f491
+
+/** What capping each track can be reported as. */
+export const PRESSURE_POOLS: Record<PressureTrack, readonly VictoryType[]> = {
+  crowd: [
+    'political',
+    'seduction',
+    'wedding',
+    'filibuster',
+    'roast',
+    'recruitment',
+    'endorsement',
+    'litigation',
+    'union',
+    'sermon',
+    'heckle',
+  ],
+  hex: [
+    'enchantment',
+    'curse',
+    'polymorph',
+    'banishment',
+    'possession',
+    'soul_trade',
+    'summoning',
+    'time_loop',
+    'dream',
+    'erasure',
+  ],
+  fate: ['nepotism', 'mistaken_identity', 'market_crash', 'existential', 'forfeit', 'no_contest'],
+}
+
+/** Both sides this charming and it stops being a fight on its own. */
+export const WEDDING_CHA = 8
+
+/**
+ * Which flavour a capped track reads as. Own stream again, one draw, always —
+ * and the loser's profile rotates the pool, so two fighters who cap the same
+ * track on the same seed still don't go out the same way.
+ */
+export function classifyPressure(
+  track: PressureTrack,
+  seed: number,
+  winner: SpiritStats,
+  loser: SpiritStats,
+): VictoryType {
+  const flavour = makeRng((seed ^ PRESSURE_FLAVOUR_SALT) >>> 0)
+  const roll = flavour()
+
+  // Nobody was ever going to lose this one.
+  if (track === 'crowd' && winner.cha >= WEDDING_CHA && loser.cha >= WEDDING_CHA) return 'wedding'
+
+  const pool = PRESSURE_POOLS[track]
+  const shift = winner.cha * 3 + winner.wil * 5 + winner.arc * 7 + winner.luk * 11 + loser.wil * 13
+  return pool[(Math.floor(roll * pool.length) + shift) % pool.length]
 }
 
 /** The slice of a fighter's fight-long tally that classification cares about. */
@@ -73,6 +292,8 @@ export interface VictorySideView {
   atk: number
   def: number
   flaw: FlawEffect
+  /** The spirit four, for reading a pressure win. */
+  spirit: SpiritStats
 }
 
 export interface VictoryInput {
@@ -82,6 +303,8 @@ export interface VictoryInput {
   /** Effect and damage of the fight's final action, for the finisher checks. */
   finalBlow: { actor: Side; effect: string; damage: number } | null
   sides: Record<Side, VictorySideView>
+  /** The track the winner capped, or null when HP settled it. */
+  pressure: PressureTrack | null
 }
 
 const OVERKILL_FRACTION = 0.4
@@ -114,6 +337,10 @@ export function classifyVictory(input: VictoryInput): VictoryType {
   const flavour = makeRng(input.seed ^ 0x5f375a86)
   const chaosRoll = flavour()
   const paperworkRoll = flavour()
+
+  // A capped meter outranks every mechanical read below, act_of_god included:
+  // whatever just happened, somebody very much did do it on purpose.
+  if (input.pressure) return classifyPressure(input.pressure, input.seed, w.spirit, l.spirit)
 
   if (chaosRoll < ACT_OF_GOD_CHANCE) return 'act_of_god'
 
@@ -194,5 +421,65 @@ export function victoryText(type: VictoryType, winner: string, loser: string): s
       return `The lighting rig comes down between them. Officials award it to ${winner}.`
     case 'paperwork':
       return `${loser}'s fighting licence lapsed nine days ago. ${winner} wins on the filing.`
+
+    // Crowd
+    case 'political':
+      return `${winner} has the room, and the room has the judges. ${loser} is outvoted.`
+    case 'seduction':
+      return `${loser} forgets entirely what this was about. They leave together, coats over shoulders.`
+    case 'wedding':
+      return `The fight stops; the seating plan starts. ${winner} proposed first and is awarded the bout.`
+    case 'filibuster':
+      return `${winner} holds the floor for eleven unbroken minutes. The clock runs out on ${loser}.`
+    case 'roast':
+      return `${winner} says one short thing about ${loser}'s stance. ${loser} leaves.`
+    case 'recruitment':
+      return `${loser} is now on ${winner}'s side, effective immediately and with real enthusiasm.`
+    case 'endorsement':
+      return `${loser} signs a sponsorship mid-round and leaves for the shoot. ${winner} waves them off.`
+    case 'litigation':
+      return `${loser} is served in the ring. The cease-and-desist ends the bout on the spot.`
+    case 'union':
+      return `${winner} organizes the arena staff. The bout is halted pending negotiation.`
+    case 'sermon':
+      return `${loser} kneels, converts, and forfeits. ${winner} lets them keep the gear bag.`
+    case 'heckle':
+      return `The crowd turns on ${loser} in the fourth. They leave in tears, slowly.`
+
+    // Hex
+    case 'enchantment':
+      return `${winner} points once. ${loser} spends the rest of the round hitting themselves.`
+    case 'curse':
+      return `The hex lands late, as hexes do. ${loser} drops with health to spare.`
+    case 'polymorph':
+      return `${loser} is now a goose. The goose does not answer the count.`
+    case 'banishment':
+      return `${loser} is removed from this plane. The referee counts to ten anyway.`
+    case 'possession':
+      return `${winner} borrows ${loser}'s body for a moment and forfeits on their behalf.`
+    case 'soul_trade':
+      return `${winner} bought it during the walkout. ${loser} no longer wishes to fight anyone.`
+    case 'summoning':
+      return `${winner} calls up something considerably bigger. It handles the rest.`
+    case 'time_loop':
+      return `${winner} already won this, about four minutes ago. Everyone else catches up.`
+    case 'dream':
+      return `The whole bout was ${loser}'s. ${winner} wakes them, gently, and it ends.`
+    case 'erasure':
+      return `${loser} was never entered in this bracket. There is no ${loser}.`
+
+    // Fate
+    case 'nepotism':
+      return `The promoter is ${winner}'s parent. The decision takes no time at all.`
+    case 'mistaken_identity':
+      return `The wrong fighter was announced. ${winner} wins on the technicality and says nothing.`
+    case 'market_crash':
+      return `The arena's sponsor collapses mid-round. ${winner} was short. ${loser} was long.`
+    case 'existential':
+      return `${loser} works out that none of this matters and sits down. ${winner} remains standing.`
+    case 'forfeit':
+      return `${loser} simply leaves. No statement, no gear bag, no return.`
+    case 'no_contest':
+      return `Nobody can explain what happened here. ${winner} is credited with it regardless.`
   }
 }

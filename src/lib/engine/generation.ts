@@ -1,7 +1,17 @@
-import { FLAW_EFFECTS, MOVE_EFFECTS, PALETTE_SIZE, SPRITE_SIZE, STAT_TOTAL } from './types'
+import {
+  FLAW_EFFECTS,
+  MOVE_EFFECTS,
+  PALETTE_SIZE,
+  SPIRIT_TOTAL,
+  SPRITE_SIZE,
+  STAT_TOTAL,
+} from './types'
 
 const STAT_RANGE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const statSchema = { type: 'integer', enum: STAT_RANGE } as const
+
+const SPIRIT_RANGE = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+const spiritStatSchema = { type: 'integer', enum: SPIRIT_RANGE } as const
 
 function moveSchema(powers: number[]) {
   return {
@@ -31,8 +41,17 @@ export const FIGHTER_SCHEMA = {
     stats: {
       type: 'object',
       additionalProperties: false,
-      required: ['hp', 'atk', 'def', 'spd'],
-      properties: { hp: statSchema, atk: statSchema, def: statSchema, spd: statSchema },
+      required: ['hp', 'atk', 'def', 'spd', 'cha', 'wil', 'arc', 'luk'],
+      properties: {
+        hp: statSchema,
+        atk: statSchema,
+        def: statSchema,
+        spd: statSchema,
+        cha: spiritStatSchema,
+        wil: spiritStatSchema,
+        arc: spiritStatSchema,
+        luk: spiritStatSchema,
+      },
     },
     basic: moveSchema([3, 4, 5, 6]),
     special: moveSchema([6, 7, 8, 9, 10]),
@@ -75,6 +94,21 @@ Invent a proper name for the fighter and a short epithet. Do not reuse the playe
 ## Stats
 
 Distribute exactly ${STAT_TOTAL} points across hp, atk, def, and spd. Every stat is between 3 and 12. The total is a hard budget: a fighter described as unstoppable, invincible, or godlike gets a lopsided spread, not extra points. Let the description drive the shape — something heavy and armored is high hp/def and low spd; something quick and fragile is the reverse. Avoid flat 7/8/7/8 spreads; specialists are more interesting to watch.
+
+## Spirit
+
+Now spend a second, separate budget: exactly ${SPIRIT_TOTAL} points across cha, wil, arc, and luk. Every one is between 2 and 10.
+
+- cha, Presence — charisma, rhetoric, stage command, allure. Drives social victories.
+- wil, Resolve — conviction, stubbornness, sanity. Defends against all three of the others.
+- arc, Weirdness — magic, curses, cosmic static. Drives arcana victories.
+- luk, Fate — luck, coincidence, narrative convenience. Drives absurd victories.
+
+These ${SPIRIT_TOTAL} points are their own budget. They cannot be traded against the ${STAT_TOTAL} physical points in either direction — a frail wizard does not buy Weirdness with hp, and a slab of muscle does not buy atk by dumping Presence.
+
+Read the shape off the description the same way you did for the body. A cult leader is high cha; a haunted appliance is high arc; a stubborn old bailiff is high wil; anything held together by coincidence is high luk. Avoid flat 5/5/5/5 spreads.
+
+Lopsided is allowed and it is a real gamble: a fighter who dumps everything into Presence still loses to a stubborn opponent with high Resolve, because Resolve is the defense against all of it. Commit anyway when the description commits.
 
 ## Moves
 
