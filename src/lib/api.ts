@@ -1,7 +1,7 @@
 import type { Fighter, FighterPrompts, SimResult } from '../types.ts'
 
 const URL_BASE = import.meta.env.VITE_SUPABASE_URL
-const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
 export interface FightResult extends SimResult {
   opponent: Fighter
@@ -11,8 +11,8 @@ export interface FightResult extends SimResult {
 function headers(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    apikey: ANON_KEY,
-    Authorization: `Bearer ${ANON_KEY}`,
+    apikey: PUBLISHABLE_KEY,
+    Authorization: `Bearer ${PUBLISHABLE_KEY}`,
   }
 }
 

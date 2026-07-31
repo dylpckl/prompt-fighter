@@ -54,7 +54,7 @@ tests/                           sim determinism/termination, normalizers
 
 ```bash
 npm install
-cp .env.example .env        # fill in VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+cp .env.example .env        # fill in VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
 ```
 
 Apply the schema and deploy the functions:
@@ -69,6 +69,10 @@ supabase functions deploy fight
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected into Edge Functions
 automatically — only the Anthropic key needs setting.
+
+If `supabase link` returns `Unauthorized` straight after a successful
+`supabase login`, check for a `SUPABASE_ACCESS_TOKEN` environment variable: the
+CLI prefers it over stored credentials, so a stale one shadows every login.
 
 Fill the ghost pool, then run the app:
 

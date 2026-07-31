@@ -9,7 +9,7 @@
 import { randomUUID } from 'node:crypto'
 
 const URL_BASE = process.env.VITE_SUPABASE_URL
-const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY
+const PUBLISHABLE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
 const SEEDS = [
   {
@@ -87,8 +87,8 @@ const SEEDS = [
 ]
 
 async function main() {
-  if (!URL_BASE || !ANON_KEY) {
-    console.error('Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before running the seed.')
+  if (!URL_BASE || !PUBLISHABLE_KEY) {
+    console.error('Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY before running the seed.')
     process.exit(1)
   }
 
@@ -98,8 +98,8 @@ async function main() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: ANON_KEY,
-        Authorization: `Bearer ${ANON_KEY}`,
+        apikey: PUBLISHABLE_KEY,
+        Authorization: `Bearer ${PUBLISHABLE_KEY}`,
       },
       body: JSON.stringify({ sessionId: randomUUID(), prompts }),
     })
