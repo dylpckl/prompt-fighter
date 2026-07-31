@@ -19,6 +19,10 @@ const SPIRIT_ROWS = [
   ['luk', 'Fate'],
 ] as const satisfies ReadonlyArray<readonly [keyof Stats, string]>
 
+/** How long the matchup holds before the fight starts. The countdown bar and
+ *  the arena's timer both read from here so they can't drift apart. */
+export const PREVIEW_MS = 4200
+
 /**
  * The beat before the bell. One table, read across: your number, the stat, then
  * theirs — so an advantage is visible without holding two stat blocks in your
@@ -27,7 +31,12 @@ const SPIRIT_ROWS = [
 export function VersusPreview({ a, b }: { a: Fighter; b: Fighter }) {
   return (
     <div style={{ display: 'grid', gap: 10 }}>
-      <div style={{ ...panel, padding: 14, display: 'grid', gap: 14 }}>
+      <div className="vs__panel" style={{ ...panel, padding: 14, display: 'grid', gap: 14 }}>
+        {/* How long is left, without a number ticking down at anyone. */}
+        <div className="vs__countdown" aria-hidden="true">
+          <span style={{ animationDuration: `${PREVIEW_MS}ms` }} />
+        </div>
+
         <div
           style={{
             display: 'flex',
@@ -103,7 +112,10 @@ export function VersusPreview({ a, b }: { a: Fighter; b: Fighter }) {
 function Corner({ fighter, align = 'left' }: { fighter: Fighter; align?: 'left' | 'right' }) {
   const right = align === 'right'
   return (
-    <span style={{ display: 'grid', gap: 6, justifyItems: right ? 'end' : 'start', minWidth: 0 }}>
+    <span
+      className={right ? 'vs__corner--b' : 'vs__corner--a'}
+      style={{ display: 'grid', gap: 6, justifyItems: right ? 'end' : 'start', minWidth: 0 }}
+    >
       <Sprite sprite={fighter.sprite} scale={4} flip={right} idle={false} />
       <span
         style={{

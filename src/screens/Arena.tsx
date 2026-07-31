@@ -3,13 +3,11 @@ import type { Fighter } from '@/lib/engine/types'
 import type { FightResult } from '@/lib/api'
 import { VICTORY_LABELS, victoryText } from '@/lib/engine/victory'
 import { FightStage, stageSide } from '@/components/FightStage'
-import { VersusPreview } from '@/screens/VersusPreview'
+import { PREVIEW_MS, VersusPreview } from '@/screens/VersusPreview'
 import { button, label, panel, t } from '@/theme'
 
 const FIRST_BEAT_MS = 550
 const BEAT_MS = 1050
-/** Long enough to read the table, short enough not to be a wait. */
-const PREVIEW_MS = 4200
 
 interface Props {
   player: Fighter

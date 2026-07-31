@@ -426,6 +426,105 @@ canvas {
   }
 }
 
+/* --- Versus preview ------------------------------------------------------ */
+
+.vs__corner--a {
+  animation: flyInLeft 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.vs__corner--b {
+  animation: flyInRight 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Fires as the two land, not on mount. */
+.vs__panel {
+  animation: impactShake 360ms ease-out 560ms both;
+}
+
+.vs__countdown {
+  height: 2px;
+  background: #1c1c21;
+  overflow: hidden;
+}
+
+.vs__countdown > span {
+  display: block;
+  height: 100%;
+  background: #d9503c;
+  transform-origin: left center;
+  animation-name: countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  /* duration comes from the component, which owns the timer */
+}
+
+@keyframes flyInLeft {
+  0% {
+    transform: translateX(-140%);
+    opacity: 0;
+  }
+  70% {
+    transform: translateX(5%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes flyInRight {
+  0% {
+    transform: translateX(140%);
+    opacity: 0;
+  }
+  70% {
+    transform: translateX(-5%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes impactShake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-3px, 2px);
+  }
+  40% {
+    transform: translate(3px, -2px);
+  }
+  60% {
+    transform: translate(-2px, 1px);
+  }
+  80% {
+    transform: translate(2px, -1px);
+  }
+}
+
+@keyframes countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Everything above is decoration and every element's resting state is its end
+   state, so switching the animations off leaves the layout correct rather than
+   stuck mid-flight. The countdown stays: it's information, not ornament. */
+@media (prefers-reduced-motion: reduce) {
+  .vs__corner--a,
+  .vs__corner--b,
+  .vs__panel {
+    animation: none;
+  }
+}
+
 @keyframes bob {
   0%,
   100% {
