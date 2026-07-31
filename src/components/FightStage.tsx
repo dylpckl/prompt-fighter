@@ -78,7 +78,7 @@ export function FightStage({ a, b, log, maxHp, step }: Props) {
             </div>
           </div>
 
-          <BattleLog entries={log.slice(0, clamped)} />
+          <BattleLog entries={log.slice(0, clamped)} names={{ a: a.name, b: b.name }} />
         </div>
 
         {/* Phone only — the flanking panels below cover the same ground once
@@ -288,7 +288,13 @@ function FighterPanel({ side }: { side: StageSide }) {
  * Appends as the replay runs and sticks to the bottom, so the fight reads as a
  * transcript building up rather than one line replacing another.
  */
-function BattleLog({ entries }: { entries: TurnEvent[] }) {
+function BattleLog({
+  entries,
+  names,
+}: {
+  entries: TurnEvent[]
+  names: Record<Side, string>
+}) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -317,47 +323,53 @@ function BattleLog({ entries }: { entries: TurnEvent[] }) {
         ) : (
           entries.map((e, i) => {
             const last = i === entries.length - 1
+            // A turn nobody acted on — stunned, or a slow start. The sim leaves
+            // the move as an em dash; say why rather than showing a bare row.
+            const lostTurn = e.move === '—'
+
             return (
               <div
                 key={`${e.turn}-${i}`}
                 style={{
                   display: 'flex',
-                  gap: 10,
+                  gap: 8,
                   alignItems: 'baseline',
                   animation: last ? 'fadeUp 200ms ease-out' : undefined,
+                  color: last ? t.text : t.dim,
                 }}
               >
-                <span style={{ fontSize: 11, color: t.faint, width: 22, flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: t.faint, width: 20, flexShrink: 0 }}>
                   {e.turn}
                 </span>
+
+                <span
+                  style={{
+                    fontSize: 12,
+                    width: 92,
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {names[e.actor]}
+                </span>
+
                 <span
                   style={{
                     fontSize: 13,
-                    lineHeight: 1.5,
-                    color: last ? t.text : t.dim,
+                    minWidth: 0,
+                    flex: 1,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    color: lostTurn ? t.faint : undefined,
                   }}
                 >
-                  {e.text}
+                  {lostTurn ? 'loses the turn' : e.move}
                 </span>
-                {e.damage > 0 && (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: e.actor === 'a' ? t.good : t.accent,
-                      marginLeft: 'auto',
-                      flexShrink: 0,
-                    }}
-                  >
-                    −{e.damage}
-                  </span>
-                )}
-                {e.heal > 0 && (
-                  <span
-                    style={{ fontSize: 11, color: t.good, marginLeft: 'auto', flexShrink: 0 }}
-                  >
-                    +{e.heal}
-                  </span>
-                )}
+
+                <Outcome event={e} />
               </div>
             )
           })
@@ -365,6 +377,21 @@ function BattleLog({ entries }: { entries: TurnEvent[] }) {
       </div>
     </div>
   )
+}
+
+/**
+ * What the turn did, always in the right-hand column so the numbers line up and
+ * can be read down. A miss or a guard still gets a word — a blank there reads
+ * as a rendering fault rather than a turn where nothing landed.
+ */
+function Outcome({ event }: { event: TurnEvent }) {
+  const base = { fontSize: 11, marginLeft: 'auto', flexShrink: 0 } as const
+
+  if (event.missed) return <span style={{ ...base, color: t.faint }}>miss</span>
+  if (event.damage > 0) return <span style={{ ...base, color: t.accent }}>−{event.damage}</span>
+  if (event.heal > 0) return <span style={{ ...base, color: t.good }}>+{event.heal}</span>
+  if (event.effect === 'guard') return <span style={{ ...base, color: t.dim }}>guard</span>
+  return <span style={base} />
 }
 
 function HealthBar({
