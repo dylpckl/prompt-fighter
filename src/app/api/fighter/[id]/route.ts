@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/server/supabase'
+import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
 import { ValidationError, parseUuid } from '@/lib/engine/validate'
 
 export const runtime = 'nodejs'
@@ -14,9 +15,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const { id } = await params
     const fighterId = parseUuid(id, 'fighter')
 
+    // Anyone can reach this by id — the leaderboard links straight to it — so
+    // it returns the public projection only. See lib/server/fighters.ts.
     const { data, error } = await supabaseAdmin()
       .from('fighters')
-      .select('*')
+      .select(PUBLIC_FIGHTER_COLUMNS)
       .eq('id', fighterId)
       .maybeSingle()
 

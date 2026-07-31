@@ -53,7 +53,11 @@ export interface FighterCore {
 export interface Fighter extends FighterCore {
   id: string
   title: string
-  prompts: FighterPrompts
+  /**
+   * Server-side only. The API never serialises another player's prompts, and
+   * nothing in the UI renders them — see lib/server/fighters.ts.
+   */
+  prompts?: FighterPrompts
   sprite: Sprite
   wins: number
   losses: number
