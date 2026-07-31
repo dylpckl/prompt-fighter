@@ -9,8 +9,6 @@ import { Sprite } from '@/components/Sprite'
 import { StatBlock } from '@/components/StatBlock'
 import { label, panel, t } from '@/theme'
 
-const FIELD_HEIGHT = 240
-const GROUND_HEIGHT = 76
 
 /**
  * One side of the stage. The solo arena has the whole fighter row and draws the
@@ -194,29 +192,29 @@ function Battlefield({
   idle: boolean
 }) {
   return (
+    // Height and ground depth come from CSS so they can shrink on a phone —
+    // inline styles can't express a media query.
     <div
+      className="battlefield"
       style={{
-        position: 'relative',
-        height: FIELD_HEIGHT,
-        overflow: 'hidden',
         border: `1px solid ${t.line}`,
         borderRadius: 3,
         background: `linear-gradient(180deg, #0e0e11 0%, ${t.panel} 100%)`,
       }}
     >
       <div
+        className="battlefield__ground"
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: 0,
-          height: GROUND_HEIGHT,
           background: t.panelHi,
           borderTop: `1px solid ${t.line}`,
         }}
       />
 
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: GROUND_HEIGHT }}>
+      <div className="battlefield__actors" style={{ position: 'absolute', left: 0, right: 0 }}>
         <div
           style={{
             width: '100%',

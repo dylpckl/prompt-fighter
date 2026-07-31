@@ -185,10 +185,12 @@ canvas {
 
 /* Shorter on a phone so the log and buttons clear the fold. */
 .battlefield {
-  /* Ground band carries each fighter's move names. */
-  --ground: 58px;
+  /* The ground band's whole job is giving the sprites something to stand on so
+     they don't float in the gradient. It held the move names once; those live
+     in the stat block now, so a strip does the job a band was doing. */
+  --ground: 12px;
   position: relative;
-  height: 174px;
+  height: 148px;
   overflow: hidden;
 }
 
@@ -261,8 +263,8 @@ canvas {
 
 @media (min-width: 560px) {
   .battlefield {
-    --ground: 76px;
-    height: 240px;
+    --ground: 20px;
+    height: 176px;
   }
 
   .arena__log-scroll {
