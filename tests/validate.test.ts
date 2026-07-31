@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  FIGHTER_COLUMNS,
   ValidationError,
   hydrateFighter,
   normalizeFlaw,
@@ -212,15 +211,8 @@ describe('hydrateFighter', () => {
     expect(source.session_id).toBe('keep-me')
   })
 
-  it('lists no private column in the projection', () => {
-    for (const key of ['session_id', 'prompts']) {
-      expect(FIGHTER_COLUMNS.split(',').map((c) => c.trim())).not.toContain(key)
-    }
-    // The fields the client actually draws have to survive it.
-    for (const key of ['id', 'name', 'title', 'stats', 'moves', 'flaw', 'sprite']) {
-      expect(FIGHTER_COLUMNS.split(',').map((c) => c.trim())).toContain(key)
-    }
-  })
+  // The projection itself is covered in tests/fighters.test.ts, next to the
+  // constant it asserts about.
 })
 
 describe('normalizeMove', () => {

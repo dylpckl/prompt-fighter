@@ -218,6 +218,41 @@ describe('simulate', () => {
     expect(bMoves.slice(0, 3)).toEqual(['Poke', 'Poke', 'Poke'])
     expect(bMoves[3]).toBe('Crescendo')
   })
+
+  it('reports the meter charging and resetting as the signature fires', () => {
+    const a = fighter({ name: 'Alpha', stats: stats(12, 3, 12, 3) })
+    const b = fighter({
+      name: 'Beta',
+      stats: stats(12, 3, 12, 4),
+      moves: [
+        { name: 'Poke', power: 3, effect: 'damage' },
+        { name: 'Crescendo', power: 6, effect: 'damage' },
+      ],
+      flaw: { name: 'Thin skin', effect: 'glass' },
+    })
+
+    const result = simulate(a, b, 3)
+    const bMeter = result.log.filter((e) => e.actor === 'b').map((e) => e.meter.b)
+
+    // Three actions bank a charge each; the fourth spends them.
+    expect(bMeter.slice(0, 4)).toEqual([1, 2, 3, 0])
+  })
+
+  it('does not charge the meter on a turn lost to slow_start', () => {
+    const sluggish = fighter({
+      name: 'Sluggish',
+      stats: stats(8, 8, 6, 8),
+      flaw: { name: 'Cold engine', effect: 'slow_start' },
+    })
+    const other = fighter({ name: 'Other', stats: stats(8, 7, 7, 8) })
+
+    const result = simulate(sluggish, other, 5)
+    const opening = result.log.find((e) => e.actor === 'a')
+
+    // The hesitation costs an action without banking anything toward the
+    // signature — that delay is the point of the flaw.
+    expect(opening?.meter.a).toBe(0)
+  })
 })
 
 /**

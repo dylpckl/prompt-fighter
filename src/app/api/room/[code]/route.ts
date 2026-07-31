@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/server/supabase'
-import { FIGHTER_COLUMNS, ValidationError, hydrateFighter, parseUuid } from '@/lib/engine/validate'
+import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
+import { ValidationError, hydrateFighter, parseUuid } from '@/lib/engine/validate'
 import { BEAT_MS, parseRoomCode } from '@/lib/engine/bracket'
 import { advanceRoom } from '../_advance'
 import type { MatchRow, RoomRow } from '../_advance'
@@ -54,7 +55,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
     if (entrants.length > 0) {
       const { data: fighterRows, error: fighterError } = await db
         .from('fighters')
-        .select(FIGHTER_COLUMNS)
+        .select(PUBLIC_FIGHTER_COLUMNS)
         .in('id', entrants.map((e) => e.fighter_id))
 
       if (fighterError) throw fighterError

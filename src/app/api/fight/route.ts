@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 import { randomInt } from 'node:crypto'
 
 import { supabaseAdmin } from '@/lib/server/supabase'
+import { toPublicFighter } from '@/lib/server/fighters'
 import { simulate } from '@/lib/engine/sim'
-import { FIGHTER_COLUMNS, ValidationError, hydrateFighter, parseUuid } from '@/lib/engine/validate'
+import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
+import { ValidationError, hydrateFighter, parseUuid } from '@/lib/engine/validate'
 import type { Fighter, FighterCore } from '@/lib/engine/types'
 
 export const runtime = 'nodejs'
@@ -26,7 +28,7 @@ export async function POST(req: Request) {
     // this check relies on.
     const { data: challenger, error: challengerError } = await db
       .from('fighters')
-      .select(FIGHTER_COLUMNS)
+      .select(PUBLIC_FIGHTER_COLUMNS)
       .eq('id', fighterId)
       .eq('session_id', sessionId)
       .maybeSingle()
@@ -66,7 +68,10 @@ export async function POST(req: Request) {
     })
     if (recordError) throw recordError
 
-    return NextResponse.json({ ...result, seed, opponent })
+    // pick_ghost returns `setof public.fighters`, so the opponent arrives with
+    // every column — including the session_id that authorises a fight. Without
+    // this, one bout hands you a credential for someone else's fighter.
+    return NextResponse.json({ ...result, seed, opponent: toPublicFighter(opponent) })
   } catch (err) {
     if (err instanceof ValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 })

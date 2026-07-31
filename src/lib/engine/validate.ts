@@ -128,31 +128,23 @@ export function normalizeStats(input: unknown): Stats {
 }
 
 /**
- * The columns a fighter row is allowed to be selected with.
+ * Keys that must never reach a response, whatever the query asked for.
  *
- * `session_id` is conspicuously absent, and that is the point. It is the app's
- * only authorization token — /api/fight and the room join check both prove
- * ownership with a plain `.eq('session_id', …)` — while fighter *ids* are
- * public by design: /api/leaderboard publishes the top 25 and the room GET
- * publishes every entrant. Shipping the token next to the id it protects would
- * let anyone enter, and then drive the record of, somebody else's fighter.
- *
- * `prompts` goes too. It is the author's raw text, nothing renders it, and a
- * payload nobody reads is a payload that can't leak.
+ * The projection and the canonical strip both live in `lib/server/fighters.ts`
+ * (`PUBLIC_FIGHTER_COLUMNS` / `toPublicFighter`) — that is the credential
+ * boundary and the one to reach for. This copy exists because `hydrateFighter`
+ * is the last thing every fighter passes through on the way out, so having it
+ * enforce the same rule costs nothing and closes the gap if a future read path
+ * forgets. Two locks on one door, not two different doors.
  */
-export const FIGHTER_COLUMNS =
-  'id, name, title, stats, moves, flaw, sprite, wins, losses, created_at'
-
-/** Keys that must never reach a response, whatever the query asked for. */
 const PRIVATE_FIGHTER_KEYS = ['session_id', 'prompts'] as const
 
 /**
  * A fighter row on the way *out* of the database: stripped, then normalized.
  *
- * The strip is belt to FIGHTER_COLUMNS' braces, and it is not redundant —
- * `pick_ghost` returns `setof public.fighters`, so an RPC result arrives with
- * every column on it and cannot be projected at the query. One function on the
- * way out means one place to get it right.
+ * The strip matters most for rows that were never projected — `pick_ghost`
+ * returns `setof public.fighters`, so an RPC result arrives complete and cannot
+ * be narrowed at the query.
  *
  * Stats are normalized on write, so for anything created since the spirit
  * budget existed that half is a no-op — both budgets are idempotent once they

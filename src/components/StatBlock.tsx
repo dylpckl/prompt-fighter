@@ -1,5 +1,7 @@
 import { SPIRIT_MAX, STAT_MAX } from '@/lib/engine/types'
-import type { Fighter } from '@/lib/engine/types'
+import type { Fighter, Stats } from '@/lib/engine/types'
+import { FLAW_HELP, MOVE_HELP, STAT_HELP } from '@/lib/explain'
+import { Hint } from '@/components/Hint'
 import { label, t } from '@/theme'
 
 const BODY_ROWS = [
@@ -7,7 +9,7 @@ const BODY_ROWS = [
   ['atk', 'Attack'],
   ['def', 'Defense'],
   ['spd', 'Speed'],
-] as const
+] as const satisfies ReadonlyArray<readonly [keyof Stats, string]>
 
 const SPIRIT_ROWS = [
   ['cha', 'Presence'],
@@ -20,7 +22,7 @@ export function StatBlock({ fighter }: { fighter: Fighter }) {
   return (
     <div style={{ display: 'grid', gap: 8 }}>
       {BODY_ROWS.map(([key, name]) => (
-        <StatRow key={key} name={name} value={fighter.stats[key]} max={STAT_MAX} />
+        <StatRow key={key} name={name} help={STAT_HELP[key]} value={fighter.stats[key]} max={STAT_MAX} />
       ))}
 
       <div
@@ -37,7 +39,13 @@ export function StatBlock({ fighter }: { fighter: Fighter }) {
       </div>
 
       {SPIRIT_ROWS.map(([key, name]) => (
-        <StatRow key={key} name={name} value={fighter.stats[key]} max={SPIRIT_MAX} />
+        <StatRow
+          key={key}
+          name={name}
+          help={STAT_HELP[key]}
+          value={fighter.stats[key]}
+          max={SPIRIT_MAX}
+        />
       ))}
 
       <div style={{ display: 'grid', gap: 6, marginTop: 4 }}>
@@ -47,7 +55,7 @@ export function StatBlock({ fighter }: { fighter: Fighter }) {
           <span style={{ ...label, width: 66, flexShrink: 0, color: t.accent }}>Flaw</span>
           <span style={{ fontSize: 13 }}>{fighter.flaw.name}</span>
           <span style={{ fontSize: 11, color: t.faint, marginLeft: 'auto' }}>
-            {fighter.flaw.effect}
+            <Hint text={FLAW_HELP[fighter.flaw.effect]}>{fighter.flaw.effect}</Hint>
           </span>
         </div>
       </div>
@@ -56,11 +64,23 @@ export function StatBlock({ fighter }: { fighter: Fighter }) {
 }
 
 /** Bars scale against their own budget's ceiling, so a 10 reads as maxed. */
-function StatRow({ name, value, max }: { name: string; value: number; max: number }) {
+function StatRow({
+  name,
+  help,
+  value,
+  max,
+}: {
+  name: string
+  help: string
+  value: number
+  max: number
+}) {
   const filled = Number.isFinite(value) ? value : 0
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <span style={{ ...label, width: 66, flexShrink: 0 }}>{name}</span>
+      <span style={{ ...label, width: 66, flexShrink: 0 }}>
+        <Hint text={help}>{name}</Hint>
+      </span>
       <div
         style={{
           flex: 1,
@@ -93,7 +113,9 @@ function MoveRow({ tag, move }: { tag: string; move: Fighter['moves'][number] })
       <span style={{ ...label, width: 66, flexShrink: 0 }}>{tag}</span>
       <span style={{ fontSize: 13 }}>{move.name}</span>
       <span style={{ fontSize: 11, color: t.faint, marginLeft: 'auto' }}>
-        {move.effect} · {move.power}
+        <Hint text={MOVE_HELP[move.effect]}>
+          {move.effect} · {move.power}
+        </Hint>
       </span>
     </div>
   )

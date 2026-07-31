@@ -82,9 +82,8 @@ export interface Fighter extends FighterCore {
   id: string
   title: string
   /**
-   * Only ever present on the server. `hydrateFighter` strips it on the way out
-   * along with `session_id`, so anything that came through the API has no
-   * prompts on it — see FIGHTER_COLUMNS in validate.ts.
+   * Server-side only. The API never serialises another player's prompts, and
+   * nothing in the UI renders them — see lib/server/fighters.ts.
    */
   prompts?: FighterPrompts
   sprite: Sprite
@@ -106,6 +105,8 @@ export interface TurnEvent {
   hp: Record<Side, number>
   /** Pressure meters of both sides *after* this action, rounded, 0..PRESSURE_THRESHOLD. */
   pressure: Record<Side, Record<PressureTrack, number>>
+  /** Signature-meter charge of both sides *after* this action resolves. */
+  meter: Record<Side, number>
   text: string
 }
 
@@ -141,3 +142,5 @@ export const SPIRIT_MAX = 10
 export const SPIRIT_DEFAULT = 5
 export const SPRITE_SIZE = 16
 export const PALETTE_SIZE = 8
+/** Actions banked before the signature fires. Mirrors the sim; drives the UI. */
+export const METER_TO_SPECIAL = 3

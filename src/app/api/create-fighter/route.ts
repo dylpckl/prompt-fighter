@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/server/supabase'
+import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
 import { RefusedError, generateFighter } from '@/lib/server/generate'
 import {
-  FIGHTER_COLUMNS,
   ValidationError,
   hydrateFighter,
   normalizeFlaw,
@@ -63,10 +63,13 @@ export async function POST(req: Request) {
       sprite: normalizeSprite(generated.palette, generated.sprite),
     }
 
-    // Same projection as every other fighter response. The caller already knows
-    // its own session id, but echoing the token back on a row is the habit that
-    // turns into a leak the moment the row is shared.
-    const { data, error } = await db.from('fighters').insert(fighter).select(FIGHTER_COLUMNS).single()
+    // The caller owns this row, so nothing here would leak — but every fighter
+    // leaves through the same projection so there is one rule to remember.
+    const { data, error } = await db
+      .from('fighters')
+      .insert(fighter)
+      .select(PUBLIC_FIGHTER_COLUMNS)
+      .single()
     if (error) throw error
 
     return NextResponse.json({ fighter: hydrateFighter(data) })

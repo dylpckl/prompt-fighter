@@ -14,12 +14,10 @@ import {
   wilResistance,
 } from './victory'
 import type { PressureTrack, VictorySideView } from './victory'
-import { SPIRIT_DEFAULT } from './types'
+import { METER_TO_SPECIAL, SPIRIT_DEFAULT } from './types'
 import type { FighterCore, Move, SimResult, Side, SpiritKey, TurnEvent } from './types'
 
 const MAX_ACTIONS_PER_SIDE = 14
-/** Actions banked before the signature move fires. */
-const METER_TO_SPECIAL = 3
 const DAMAGE_COEFFICIENT = 7
 const OVERHEAT_COST = 8
 const STAMINA_COST = 4
@@ -180,6 +178,7 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
   let pressure: PressureTrack | null = null
 
   const snapshot = () => ({ a: state.a.hp, b: state.b.hp })
+  const meterSnapshot = () => ({ a: state.a.meter, b: state.b.meter })
 
   /** Meters are display values, so they're squared off on the way out, never in place. */
   const meters = (): Record<Side, Meters> => ({
@@ -206,6 +205,7 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
       missed,
       hp: snapshot(),
       pressure: meters(),
+      meter: meterSnapshot(),
       text,
     })
   }
