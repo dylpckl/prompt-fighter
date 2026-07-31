@@ -6,14 +6,14 @@ import {
   normalizeSprite,
   normalizeStats,
   parsePrompts,
-} from '../supabase/functions/_shared/validate.ts'
+} from '../src/lib/engine/validate'
 import {
   PALETTE_SIZE,
   SPRITE_SIZE,
   STAT_MAX,
   STAT_MIN,
   STAT_TOTAL,
-} from '../supabase/functions/_shared/types.ts'
+} from '../src/lib/engine/types'
 
 const sum = (s: { hp: number; atk: number; def: number; spd: number }) =>
   s.hp + s.atk + s.def + s.spd

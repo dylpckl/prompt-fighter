@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { PROMPT_MAX_CHARS } from '../types.ts'
-import type { FighterPrompts } from '../types.ts'
-import { button, label, panel, t } from '../theme.ts'
+import { PROMPT_MAX_CHARS } from '@/lib/engine/types'
+import type { FighterPrompts } from '@/lib/engine/types'
+import { button, label, panel, t } from '@/theme'
 
 const SLOTS = [
   { key: 'body', title: 'Body', hint: 'What is it made of? What shape does it take?' },

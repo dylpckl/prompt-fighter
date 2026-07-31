@@ -8,10 +8,20 @@ import {
   STAT_MAX,
   STAT_MIN,
   STAT_TOTAL,
-} from './types.ts'
-import type { FighterPrompts, Flaw, Move, Sprite, Stats } from './types.ts'
+} from './types'
+import type { FighterPrompts, Flaw, Move, Sprite, Stats } from './types'
 
 export class ValidationError extends Error {}
+
+/** Session and fighter ids are client-supplied — not secrets, but they reach a query. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function parseUuid(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !UUID.test(value)) {
+    throw new ValidationError(`Invalid ${label}.`)
+  }
+  return value.toLowerCase()
+}
 
 export function parsePrompts(input: unknown): FighterPrompts {
   if (!input || typeof input !== 'object') throw new ValidationError('Missing prompts.')

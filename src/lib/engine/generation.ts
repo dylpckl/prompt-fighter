@@ -1,4 +1,4 @@
-import { FLAW_EFFECTS, MOVE_EFFECTS, PALETTE_SIZE, SPRITE_SIZE, STAT_TOTAL } from './types.ts'
+import { FLAW_EFFECTS, MOVE_EFFECTS, PALETTE_SIZE, SPRITE_SIZE, STAT_TOTAL } from './types'
 
 const STAT_RANGE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const statSchema = { type: 'integer', enum: STAT_RANGE } as const

@@ -1,6 +1,6 @@
-import { STAT_MAX } from '../types.ts'
-import type { Fighter } from '../types.ts'
-import { label, t } from '../theme.ts'
+import { STAT_MAX } from '@/lib/engine/types'
+import type { Fighter } from '@/lib/engine/types'
+import { label, t } from '@/theme'
 
 const ROWS = [
   ['hp', 'Vitality'],

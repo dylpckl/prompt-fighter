@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Fighter, Side } from '../types.ts'
-import type { FightResult } from '../lib/api.ts'
-import { Sprite } from '../components/Sprite.tsx'
-import { button, label, panel, t } from '../theme.ts'
+import type { Fighter, Side } from '@/lib/engine/types'
+import type { FightResult } from '@/lib/api'
+import { Sprite } from '@/components/Sprite'
+import { button, label, panel, t } from '@/theme'
 
 const FIRST_BEAT_MS = 550
 const BEAT_MS = 1050

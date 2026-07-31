@@ -1,6 +1,6 @@
-import { chance, makeRng, range } from './rng.ts'
-import { hesitateText, narrate, selfHarmText, stunnedText } from './narrate.ts'
-import type { FighterCore, Move, SimResult, Side, TurnEvent } from './types.ts'
+import { chance, makeRng, range } from './rng'
+import { hesitateText, narrate, selfHarmText, stunnedText } from './narrate'
+import type { FighterCore, Move, SimResult, Side, TurnEvent } from './types'
 
 const MAX_ACTIONS_PER_SIDE = 14
 /** Actions banked before the signature move fires. */

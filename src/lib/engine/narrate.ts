@@ -1,4 +1,4 @@
-import type { MoveEffect } from './types.ts'
+import type { MoveEffect } from './types'
 
 interface Beat {
   attacker: string

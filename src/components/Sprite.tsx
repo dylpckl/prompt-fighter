@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { SPRITE_SIZE } from '../types.ts'
-import type { Sprite as SpriteData } from '../types.ts'
+import { SPRITE_SIZE } from '@/lib/engine/types'
+import type { Sprite as SpriteData } from '@/lib/engine/types'
 
 interface Props {
   sprite: SpriteData

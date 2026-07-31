@@ -1,13 +1,3 @@
+# Supabase is only Postgres for this project — generation and fight resolution
+# live in Next.js route handlers, so there are no Edge Functions to configure.
 project_id = "xzwifgdkudtgmqvnjbav"
-
-# JWT verification is off because there are no accounts — nobody ever holds a
-# user JWT to verify. The publishable key that reaches these functions is public
-# by design (it ships in the client bundle), so gating on it would be theatre.
-# What actually limits abuse is the per-session rate check inside
-# create-fighter, plus the fact that fight/ only ever touches a fighter whose
-# session id matches the caller's.
-[functions.create-fighter]
-verify_jwt = false
-
-[functions.fight]
-verify_jwt = false

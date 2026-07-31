@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { maxHpFor, simulate } from '../supabase/functions/_shared/sim.ts'
-import { makeRng } from '../supabase/functions/_shared/rng.ts'
-import { FLAW_EFFECTS, MOVE_EFFECTS, STAT_TOTAL } from '../supabase/functions/_shared/types.ts'
-import type { FighterCore, FlawEffect, MoveEffect } from '../supabase/functions/_shared/types.ts'
+import { maxHpFor, simulate } from '../src/lib/engine/sim'
+import { makeRng } from '../src/lib/engine/rng'
+import { FLAW_EFFECTS, MOVE_EFFECTS, STAT_TOTAL } from '../src/lib/engine/types'
+import type { FighterCore, FlawEffect, MoveEffect } from '../src/lib/engine/types'
 
 function fighter(overrides: Partial<FighterCore> = {}): FighterCore {
   return {

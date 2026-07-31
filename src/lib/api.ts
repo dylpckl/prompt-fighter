@@ -1,51 +1,50 @@
-import type { Fighter, FighterPrompts, SimResult } from '../types.ts'
-
-const URL_BASE = import.meta.env.VITE_SUPABASE_URL
-const PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+import type { Fighter, FighterPrompts, SimResult } from '@/lib/engine/types'
 
 export interface FightResult extends SimResult {
   opponent: Fighter
   seed: number
 }
 
-function headers(): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    apikey: PUBLISHABLE_KEY,
-    Authorization: `Bearer ${PUBLISHABLE_KEY}`,
-  }
-}
-
-async function post<T>(fn: string, body: unknown): Promise<T> {
-  const res = await fetch(`${URL_BASE}/functions/v1/${fn}`, {
-    method: 'POST',
-    headers: headers(),
-    body: JSON.stringify(body),
+/**
+ * Everything is same-origin now, so there are no keys, no CORS, and no base
+ * URL to configure — the browser never talks to Supabase directly.
+ */
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
 
   const payload = await res.json().catch(() => null)
   if (!res.ok) {
-    const message =
-      payload && typeof payload.error === 'string' ? payload.error : `Request failed (${res.status})`
-    throw new Error(message)
+    const detail = payload as { error?: string } | null
+    throw new Error(detail?.error ?? `Request failed (${res.status})`)
   }
   return payload as T
 }
 
-export function createFighter(sessionId: string, prompts: FighterPrompts): Promise<{ fighter: Fighter }> {
-  return post('create-fighter', { sessionId, prompts })
+export function createFighter(
+  sessionId: string,
+  prompts: FighterPrompts,
+): Promise<{ fighter: Fighter }> {
+  return request('/api/create-fighter', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, prompts }),
+  })
 }
 
 export function requestFight(sessionId: string, fighterId: string): Promise<FightResult> {
-  return post('fight', { sessionId, fighterId })
+  return request('/api/fight', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, fighterId }),
+  })
 }
 
-/** Direct PostgREST read — fighters are publicly readable, so no function needed. */
 export async function fetchFighter(id: string): Promise<Fighter | null> {
-  const res = await fetch(`${URL_BASE}/rest/v1/fighters?id=eq.${encodeURIComponent(id)}&select=*`, {
-    headers: headers(),
-  })
-  if (!res.ok) return null
-  const rows = (await res.json()) as Fighter[]
-  return rows[0] ?? null
+  try {
+    const { fighter } = await request<{ fighter: Fighter }>(`/api/fighter/${encodeURIComponent(id)}`)
+    return fighter
+  } catch {
+    return null
+  }
 }

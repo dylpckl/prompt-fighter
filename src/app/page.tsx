@@ -1,11 +1,13 @@
+'use client'
+
 import { useCallback, useEffect, useState } from 'react'
-import type { Fighter, FighterPrompts } from './types.ts'
-import { createFighter, fetchFighter, requestFight, type FightResult } from './lib/api.ts'
-import { getSessionId, getStoredFighterId, setStoredFighterId } from './lib/session.ts'
-import { Builder } from './screens/Builder.tsx'
-import { Reveal } from './screens/Reveal.tsx'
-import { Arena } from './screens/Arena.tsx'
-import { label, t } from './theme.ts'
+import type { Fighter, FighterPrompts } from '@/lib/engine/types'
+import { createFighter, fetchFighter, requestFight, type FightResult } from '@/lib/api'
+import { getSessionId, getStoredFighterId, setStoredFighterId } from '@/lib/session'
+import { Builder } from '@/screens/Builder'
+import { Reveal } from '@/screens/Reveal'
+import { Arena } from '@/screens/Arena'
+import { label, t } from '@/theme'
 
 type Screen = 'loading' | 'build' | 'reveal' | 'arena'
 
@@ -13,16 +15,15 @@ function message(err: unknown): string {
   return err instanceof Error ? err.message : 'Something went wrong.'
 }
 
-export default function App() {
+export default function Page() {
   const [screen, setScreen] = useState<Screen>('loading')
   const [fighter, setFighter] = useState<Fighter | null>(null)
   const [result, setResult] = useState<FightResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const sessionId = getSessionId()
-
-  // Returning player: pick their fighter back up.
+  // Returning player: pick their fighter back up. localStorage is only
+  // available after mount, so this can't run during render.
   useEffect(() => {
     let cancelled = false
     const stored = getStoredFighterId()
@@ -49,33 +50,30 @@ export default function App() {
     }
   }, [])
 
-  const handleCreate = useCallback(
-    async (prompts: FighterPrompts) => {
-      setBusy(true)
-      setError(null)
-      try {
-        const { fighter: made } = await createFighter(sessionId, prompts)
-        setStoredFighterId(made.id)
-        setFighter(made)
-        setResult(null)
-        setScreen('reveal')
-      } catch (err) {
-        setError(message(err))
-      } finally {
-        setBusy(false)
-      }
-    },
-    [sessionId],
-  )
+  const handleCreate = useCallback(async (prompts: FighterPrompts) => {
+    setBusy(true)
+    setError(null)
+    try {
+      const { fighter: made } = await createFighter(getSessionId(), prompts)
+      setStoredFighterId(made.id)
+      setFighter(made)
+      setResult(null)
+      setScreen('reveal')
+    } catch (err) {
+      setError(message(err))
+    } finally {
+      setBusy(false)
+    }
+  }, [])
 
   const handleFight = useCallback(async () => {
     if (!fighter) return
     setBusy(true)
     setError(null)
     try {
-      const fight = await requestFight(sessionId, fighter.id)
+      const fight = await requestFight(getSessionId(), fighter.id)
       setResult(fight)
-      // The record moved; reflect it when we come back to the reveal screen.
+      // The record moved server-side; mirror it so the reveal screen agrees.
       setFighter((f) =>
         f
           ? {
@@ -91,7 +89,7 @@ export default function App() {
     } finally {
       setBusy(false)
     }
-  }, [fighter, sessionId])
+  }, [fighter])
 
   const handleRebuild = useCallback(() => {
     setStoredFighterId(null)
@@ -111,14 +109,7 @@ export default function App() {
       }}
     >
       <main style={{ width: '100%', maxWidth: 440 }}>
-        <p
-          style={{
-            ...label,
-            margin: '0 0 22px',
-            textAlign: 'center',
-            color: t.faint,
-          }}
-        >
+        <p style={{ ...label, margin: '0 0 22px', textAlign: 'center', color: t.faint }}>
           prompt fight
         </p>
 

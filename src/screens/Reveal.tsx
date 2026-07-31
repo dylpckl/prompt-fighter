@@ -1,7 +1,7 @@
-import type { Fighter } from '../types.ts'
-import { Sprite } from '../components/Sprite.tsx'
-import { StatBlock } from '../components/StatBlock.tsx'
-import { button, label, panel, t } from '../theme.ts'
+import type { Fighter } from '@/lib/engine/types'
+import { Sprite } from '@/components/Sprite'
+import { StatBlock } from '@/components/StatBlock'
+import { button, label, panel, t } from '@/theme'
 
 interface Props {
   fighter: Fighter

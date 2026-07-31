@@ -8,8 +8,7 @@
  */
 import { randomUUID } from 'node:crypto'
 
-const URL_BASE = process.env.VITE_SUPABASE_URL
-const PUBLISHABLE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+const BASE = process.env.SEED_BASE_URL ?? 'http://localhost:3000'
 
 const SEEDS = [
   {
@@ -87,20 +86,13 @@ const SEEDS = [
 ]
 
 async function main() {
-  if (!URL_BASE || !PUBLISHABLE_KEY) {
-    console.error('Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY before running the seed.')
-    process.exit(1)
-  }
+  console.log(`Seeding against ${BASE}\n`)
 
   let made = 0
   for (const [index, prompts] of SEEDS.entries()) {
-    const res = await fetch(`${URL_BASE}/functions/v1/create-fighter`, {
+    const res = await fetch(`${BASE}/api/create-fighter`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: PUBLISHABLE_KEY,
-        Authorization: `Bearer ${PUBLISHABLE_KEY}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId: randomUUID(), prompts }),
     })
 
