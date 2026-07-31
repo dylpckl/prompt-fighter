@@ -3,10 +3,13 @@ import type { Fighter } from '@/lib/engine/types'
 import type { FightResult } from '@/lib/api'
 import { VICTORY_LABELS, victoryText } from '@/lib/engine/victory'
 import { FightStage, stageSide } from '@/components/FightStage'
+import { VersusPreview } from '@/screens/VersusPreview'
 import { button, label, panel, t } from '@/theme'
 
 const FIRST_BEAT_MS = 550
 const BEAT_MS = 1050
+/** Long enough to read the table, short enough not to be a wait. */
+const PREVIEW_MS = 4200
 
 interface Props {
   player: Fighter
@@ -25,33 +28,53 @@ interface Props {
 export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props) {
   const { log, opponent, maxHp, winner, victory } = result
   const [step, setStep] = useState(0)
+  /** The matchup gets a beat before the bell. Solo only — a bracket broadcast
+   *  derives its beat from the server clock, so a local pause would desync it. */
+  const [previewing, setPreviewing] = useState(true)
 
-  // A fresh result means a fresh replay.
-  useEffect(() => setStep(0), [result])
+  // A fresh result means a fresh preview and a fresh replay.
+  useEffect(() => {
+    setStep(0)
+    setPreviewing(true)
+  }, [result])
+
+  useEffect(() => {
+    if (!previewing) return
+    const id = setTimeout(() => setPreviewing(false), PREVIEW_MS)
+    return () => clearTimeout(id)
+  }, [previewing, result])
 
   const finished = step >= log.length
 
   useEffect(() => {
-    if (finished) return
+    if (previewing || finished) return
     const id = setTimeout(() => setStep((s) => s + 1), step === 0 ? FIRST_BEAT_MS : BEAT_MS)
     return () => clearTimeout(id)
-  }, [step, finished])
+  }, [step, finished, previewing])
 
   const playerWon = winner === 'a'
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
-      <FightStage
-        a={stageSide(player)}
-        b={stageSide(opponent)}
-        log={log}
-        maxHp={maxHp}
-        step={step}
-      />
+      {previewing ? (
+        <VersusPreview a={player} b={opponent} />
+      ) : (
+        <FightStage
+          a={stageSide(player)}
+          b={stageSide(opponent)}
+          log={log}
+          maxHp={maxHp}
+          step={step}
+        />
+      )}
 
       <div className="arena__tail">
         <div className="arena__tail-inner">
-        {!finished ? (
+        {previewing ? (
+          <button onClick={() => setPreviewing(false)} style={button()}>
+            Fight
+          </button>
+        ) : !finished ? (
           <button onClick={() => setStep(log.length)} style={button('ghost')}>
             Skip to result
           </button>
