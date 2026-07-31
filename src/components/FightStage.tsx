@@ -63,30 +63,41 @@ export function FightStage({ a, b, log, maxHp, step }: Props) {
 
   return (
     <div style={{ display: 'grid', gap: 12 }}>
+      {/* DOM order is phone order: the fight, then the stat blocks that scroll
+          under it. Wide screens re-place these with grid areas. */}
       <div className="arena">
-        <div className="arena__stat arena__stat--a">
-          <FighterPanel side={a} />
+        <div className="arena__stage">
+          <div className="arena__field" style={{ display: 'grid', gap: 10 }}>
+            <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <HealthBar name={a.name} hp={hp.a} max={maxHp.a} meter={meter.a} side="a" />
+                <HealthBar name={b.name} hp={hp.b} max={maxHp.b} meter={meter.b} side="b" />
+              </div>
+
+              {current && <PressureMeters a={current.pressure.a} b={current.pressure.b} />}
+
+              <Battlefield a={a} b={b} hitKeys={hitKeys} idle={!finished} />
+            </div>
+          </div>
+
+          <BattleLog entries={log.slice(0, clamped)} />
         </div>
 
-        <div className="arena__field" style={{ display: 'grid', gap: 10 }}>
-          <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <HealthBar name={a.name} hp={hp.a} max={maxHp.a} meter={meter.a} side="a" />
-              <HealthBar name={b.name} hp={hp.b} max={maxHp.b} meter={meter.b} side="b" />
-            </div>
+        {/* Phone only — the flanking panels below cover the same ground once
+            there's width for them. */}
+        <div className="arena__stats-mobile">
+          <FighterPanel side={a} />
+          <FighterPanel side={b} />
+        </div>
 
-            {current && <PressureMeters a={current.pressure.a} b={current.pressure.b} />}
-
-            <Battlefield a={a} b={b} hitKeys={hitKeys} idle={!finished} />
-          </div>
+        <div className="arena__stat arena__stat--a">
+          <FighterPanel side={a} />
         </div>
 
         <div className="arena__stat arena__stat--b">
           <FighterPanel side={b} />
         </div>
       </div>
-
-      <BattleLog entries={log.slice(0, clamped)} />
     </div>
   )
 }
@@ -221,7 +232,64 @@ function Battlefield({
           <StageSprite sprite={b.sprite} scale={7} flip hitKey={hitKeys.b} idle={idle} />
         </div>
       </div>
+
+      {/* Each fighter's two moves, in the ground band beneath it. On a phone the
+          stat panels scroll away under the sticky stage, so without this you
+          lose sight of what either side can actually do mid-fight. */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: GROUND_HEIGHT,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 8,
+          padding: '0 14px',
+          maxWidth: 620,
+          margin: '0 auto',
+        }}
+      >
+        <MoveTags side={a} />
+        <MoveTags side={b} align="right" />
+      </div>
     </div>
+  )
+}
+
+function MoveTags({ side, align = 'left' }: { side: StageSide; align?: 'left' | 'right' }) {
+  const moves = side.detail?.moves
+  if (!moves) return <span />
+
+  return (
+    <span
+      style={{
+        display: 'grid',
+        gap: 2,
+        justifyItems: align === 'right' ? 'end' : 'start',
+        minWidth: 0,
+      }}
+    >
+      {moves.map((m, i) => (
+        <span
+          key={m.name + i}
+          style={{
+            fontSize: 10,
+            lineHeight: 1.3,
+            color: i === 1 ? t.warn : t.dim,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: '100%',
+          }}
+          title={`${m.effect} · ${m.power}`}
+        >
+          {m.name}
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -287,13 +355,15 @@ function BattleLog({ entries }: { entries: TurnEvent[] }) {
   }, [entries.length])
 
   return (
-    <div style={{ ...panel, padding: 14, display: 'grid', gap: 10 }}>
+    <div className="arena__log" style={{ ...panel, padding: 14, display: 'grid', gap: 10 }}>
       <p style={{ ...label, margin: 0 }}>Battle log</p>
 
+      {/* Fixed height, not a max: a log that grows walks everything below it
+          down the screen as the fight goes on. */}
       <div
         ref={ref}
+        className="arena__log-scroll"
         style={{
-          maxHeight: 200,
           overflowY: 'auto',
           display: 'grid',
           gap: 6,

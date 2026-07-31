@@ -96,19 +96,24 @@ canvas {
   margin-top: 8px;
 }
 
-/* Keeps the fight on screen while you read the log or the stat blocks. The
-   background and the padding matter: without them the log shows through the
-   gap underneath as it slides past. */
-.arena__field {
+/* The fight — battlefield and log together — stays on screen while the stat
+   blocks scroll underneath. They stick as one element rather than two so the
+   log's offset doesn't have to be hard-coded to the battlefield's height.
+   The top padding lives here rather than on .page so the gap above the arena is
+   constant: the stage starts exactly where it sticks and never slides. */
+.arena__stage {
   position: sticky;
   /* 52px of nav plus its 1px bottom border. */
   top: 53px;
   z-index: 6;
   background: #0b0b0c;
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
   padding-bottom: 8px;
 }
 
-.arena__field + * {
+.arena__stage + * {
   margin-top: 0;
 }
 
@@ -150,16 +155,19 @@ canvas {
   }
 
   .arena > * + *,
-  .arena__field + * {
+  .arena__stage + * {
     margin-top: 0;
   }
 
-  /* Both panels are on screen at this width — nothing to keep in view. */
+  /* display:contents dissolves the stage so its two children take their own
+     grid areas — nothing to keep in view here, both panels are already on
+     screen. */
+  .arena__stage {
+    display: contents;
+  }
+
   .arena__field {
     grid-area: field;
-    position: static;
-    background: none;
-    padding-bottom: 0;
   }
   .arena__stat--a {
     grid-area: statA;
