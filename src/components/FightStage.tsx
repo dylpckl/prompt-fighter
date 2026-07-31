@@ -233,63 +233,7 @@ function Battlefield({
         </div>
       </div>
 
-      {/* Each fighter's two moves, in the ground band beneath it. On a phone the
-          stat panels scroll away under the sticky stage, so without this you
-          lose sight of what either side can actually do mid-fight. */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: GROUND_HEIGHT,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 8,
-          padding: '0 14px',
-          maxWidth: 620,
-          margin: '0 auto',
-        }}
-      >
-        <MoveTags side={a} />
-        <MoveTags side={b} align="right" />
-      </div>
     </div>
-  )
-}
-
-function MoveTags({ side, align = 'left' }: { side: StageSide; align?: 'left' | 'right' }) {
-  const moves = side.detail?.moves
-  if (!moves) return <span />
-
-  return (
-    <span
-      style={{
-        display: 'grid',
-        gap: 2,
-        justifyItems: align === 'right' ? 'end' : 'start',
-        minWidth: 0,
-      }}
-    >
-      {moves.map((m, i) => (
-        <span
-          key={m.name + i}
-          style={{
-            fontSize: 10,
-            lineHeight: 1.3,
-            color: i === 1 ? t.warn : t.dim,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            maxWidth: '100%',
-          }}
-          title={`${m.effect} · ${m.power}`}
-        >
-          {m.name}
-        </span>
-      ))}
-    </span>
   )
 }
 
