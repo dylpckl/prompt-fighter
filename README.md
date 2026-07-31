@@ -1,4 +1,4 @@
-# prompt fight
+# prompt fighter
 
 An anonymous SPA where you build a fighter out of four character-capped prompts,
 the app generates a low-resolution sprite for it, and it fights someone else's.
@@ -7,7 +7,7 @@ the app generates a low-resolution sprite for it, and it fights someone else's.
 
 1. **Build** — four labeled slots, 80 characters each: Body, Weapon, Signature
    move, Flaw.
-2. **Generate** — one Claude Opus 5 call turns the prompts into hidden stats,
+2. **Generate** — one Claude Sonnet 5 call turns the prompts into hidden stats,
    two named moves, a flaw effect, and a 16×16 sprite.
 3. **Match** — you're paired against a ghost: a fighter a real person built
    earlier. No waiting, no empty lobby.
@@ -246,5 +246,9 @@ SEED_BASE_URL=https://your-app.vercel.app npm run seed
 - Unsafe prompts are caught by a `safe` flag on the generation call and bounce
   before anything is written, so they never enter the pool.
 - `create-fighter` sets `maxDuration = 60`. Generation is the slowest thing in
-  the app; if it starts timing out, drop `effort` from `medium` to `low` in
-  `src/lib/server/generate.ts`.
+  the app, and already runs at `effort: 'low'`. If it starts timing out, the
+  next lever is the model in `src/lib/server/generate.ts` — but note Haiku 4.5
+  rejects the `effort` parameter outright, so that swap is not one line.
+- Generation costs roughly half a cent per fighter on Sonnet 5. The system
+  prompt carries a cache breakpoint, which pays inside a play session but not
+  across a quiet one — the default TTL is five minutes.

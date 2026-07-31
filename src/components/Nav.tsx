@@ -49,7 +49,7 @@ export function Nav() {
         }}
       >
         <Link href="/" style={{ ...link, color: onGame ? t.text : t.dim }}>
-          prompt fight
+          prompt fighter
         </Link>
 
         <nav className="nav__links">

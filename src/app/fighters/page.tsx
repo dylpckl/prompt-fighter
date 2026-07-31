@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import { Sprite } from '@/components/Sprite'
@@ -34,13 +35,6 @@ export default function FightersPage() {
     }
   }, [])
 
-  // Making one active is the whole point of the list — the game screen picks it
-  // up from storage on mount and fetches the full row.
-  function choose(id: string) {
-    setStoredFighterId(id)
-    router.push('/')
-  }
-
   return (
     <div className="shell" style={{ display: 'grid', gap: 16 }}>
       <div>
@@ -71,9 +65,9 @@ export default function FightersPage() {
           {entries.map((f) => {
             const isActive = f.id === activeId
             return (
-              <button
+              <Link
                 key={f.id}
-                onClick={() => choose(f.id)}
+                href={`/fighter/${f.id}?from=fighters`}
                 style={{
                   ...panel,
                   borderColor: isActive ? t.accent : t.line,
@@ -81,10 +75,9 @@ export default function FightersPage() {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 14,
-                  cursor: 'pointer',
                   textAlign: 'left',
-                  font: 'inherit',
                   color: 'inherit',
+                  textDecoration: 'none',
                   width: '100%',
                 }}
               >
@@ -125,7 +118,7 @@ export default function FightersPage() {
                     {isActive ? 'Active' : 'W–L'}
                   </span>
                 </span>
-              </button>
+              </Link>
             )
           })}
         </div>

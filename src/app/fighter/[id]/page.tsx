@@ -1,24 +1,48 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 
 import { Sprite } from '@/components/Sprite'
 import { FighterPanel } from '@/components/FighterPanel'
-import { fetchFighter } from '@/lib/api'
+import { fetchFighter, fetchMyFighters } from '@/lib/api'
+import { getSessionId, setStoredFighterId } from '@/lib/session'
 import type { Fighter } from '@/lib/engine/types'
 import { button, label, panel, t } from '@/theme'
 
+/** useSearchParams needs a boundary or the route can't be prerendered. */
 export default function FighterDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="shell">
+          <p style={{ ...label, margin: 0 }}>Loading…</p>
+        </div>
+      }
+    >
+      <FighterDetail />
+    </Suspense>
+  )
+}
+
+function FighterDetail() {
   const params = useParams<{ id: string }>()
+  const search = useSearchParams()
   const router = useRouter()
+
   const [fighter, setFighter] = useState<Fighter | null>(null)
   const [missing, setMissing] = useState(false)
+  const [mine, setMine] = useState<ReadonlySet<string>>(new Set())
+
+  const id = params?.id
+  // Where the visitor came from decides where "back" goes. Defaults to the
+  // leaderboard because that's the only one a shared link can reach.
+  const fromRoster = search?.get('from') === 'fighters'
 
   useEffect(() => {
     let cancelled = false
-    const id = params?.id
     if (!id) return
+
 
     fetchFighter(id).then((found) => {
       if (cancelled) return
@@ -26,10 +50,21 @@ export default function FighterDetailPage() {
       else setMissing(true)
     })
 
+    // Ownership is a server fact, not something the URL can assert — a crafted
+    // ?from=fighters shouldn't offer to fight with someone else's fighter.
+    fetchMyFighters(getSessionId())
+      .then((res) => {
+        if (!cancelled) setMine(new Set(res.fighters.map((f) => f.id)))
+      })
+      .catch(() => {})
+
     return () => {
       cancelled = true
     }
-  }, [params?.id])
+  }, [id])
+
+  const backHref = fromRoster ? '/fighters' : '/leaderboard'
+  const backLabel = fromRoster ? 'Back to my fighters' : 'Back to leaderboard'
 
   if (missing) {
     return (
@@ -37,8 +72,8 @@ export default function FighterDetailPage() {
         <div style={{ ...panel, padding: 20, textAlign: 'center' }}>
           <p style={{ margin: 0, fontSize: 14, color: t.dim }}>No such fighter.</p>
         </div>
-        <button onClick={() => router.push('/leaderboard')} style={button('ghost')}>
-          Back to leaderboard
+        <button onClick={() => router.push(backHref)} style={button('ghost')}>
+          {backLabel}
         </button>
       </div>
     )
@@ -53,6 +88,7 @@ export default function FighterDetailPage() {
   }
 
   const fights = fighter.wins + fighter.losses
+  const isMine = mine.has(fighter.id)
 
   return (
     <div className="shell" style={{ display: 'grid', gap: 12 }}>
@@ -117,8 +153,24 @@ export default function FighterDetailPage() {
         </span>
       </div>
 
-      <button onClick={() => router.push('/leaderboard')} style={button('ghost')}>
-        Back to leaderboard
+      {isMine && (
+        // Straight into a fight. Routing to the game screen first only showed
+        // this same card again with a Find opponent button on it — a click that
+        // told the visitor nothing they weren't already looking at.
+        <button
+          onClick={() => {
+            setStoredFighterId(fighter.id)
+            router.push('/?fight=1')
+          }}
+          style={button()}
+        >
+          Find opponent
+        </button>
+      )}
+
+
+      <button onClick={() => router.push(backHref)} style={button('ghost')}>
+        {backLabel}
       </button>
     </div>
   )

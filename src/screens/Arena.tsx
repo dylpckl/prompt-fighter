@@ -50,16 +50,17 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
       />
 
       <div className="arena__tail">
+        <div className="arena__tail-inner">
         {!finished ? (
           <button onClick={() => setStep(log.length)} style={button('ghost')}>
             Skip to result
           </button>
         ) : (
-          <div style={{ display: 'grid', gap: 12, animation: 'fadeUp 260ms ease-out' }}>
+          <div style={{ display: 'grid', gap: 10, animation: 'fadeUp 260ms ease-out' }}>
             <div
               style={{
                 ...panel,
-                padding: 16,
+                padding: 12,
                 textAlign: 'center',
                 borderColor: playerWon ? t.good : t.accent,
               }}
@@ -78,14 +79,17 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
 
             {error && <p style={{ margin: 0, fontSize: 13, color: t.accent }}>{error}</p>}
 
-            <button onClick={onAgain} disabled={busy} style={button()}>
-              {busy ? 'Finding opponent…' : 'Fight again'}
-            </button>
-            <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
-              Build someone new
-            </button>
+            <div className="arena__actions">
+              <button onClick={onAgain} disabled={busy} style={button()}>
+                {busy ? 'Finding…' : 'Fight again'}
+              </button>
+              <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
+                Build someone new
+              </button>
+            </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

@@ -5,9 +5,12 @@
 }
 
 html,
-body,
-#root {
-  height: 100%;
+body {
+  /* min-height, not height: a fixed 100% caps the body box at one viewport, so
+     the sticky header — whose containing block is the body — stops sticking the
+     moment you scroll past the first screen. Long pages like the leaderboard
+     then scroll straight over the nav. */
+  min-height: 100%;
   margin: 0;
 }
 
@@ -36,6 +39,34 @@ canvas {
   image-rendering: crisp-edges;
 }
 
+.page {
+  padding: 16px 18px 32px;
+}
+
+/* The arena is the only screen that would rather have the gutter as playfield —
+   everywhere else the margin is doing real work. Scoped by the wide shell it
+   already opts into, so if :has() isn't supported the arena just keeps the
+   roomier gutter rather than breaking. */
+.page:has(.shell--wide) {
+  padding-left: 8px;
+  padding-right: 8px;
+  /* No top gap on the arena: the battlefield then starts exactly where it
+     sticks, so it never slides at all before locking. */
+  padding-top: 0;
+}
+
+@media (min-width: 560px) {
+  .page {
+    padding: 24px 18px 48px;
+  }
+
+  .page:has(.shell--wide) {
+    padding-left: 18px;
+    padding-right: 18px;
+    padding-top: 0;
+  }
+}
+
 /* Screens opt into a width. Everything is the narrow column except the arena,
    which needs room for the battlefield and the two fighter panels. */
 .shell {
@@ -48,14 +79,37 @@ canvas {
   max-width: 1180px;
 }
 
-/* Phone: everything stacked, battlefield first. A stat panel needs ~200px
-   before the move names start blowing the grid out, so they only sit side by
-   side from 560px. Wide: panels flank the battlefield. */
+/* Phone: one column in DOM order — battlefield, log, actions, and the stat
+   panels last. The stats are reference material; the log and the buttons are
+   what you're actually doing, so they get the fold. A stat panel also needs
+   ~200px before long move names blow the grid out, hence the 560px pairing.
+   Wide: panels flank the battlefield and the log spans underneath. */
+/* Block, not grid, on a phone — deliberately. A sticky grid item can only
+   travel within its own grid area, and with auto rows that area is exactly the
+   item's height, so `position: sticky` on the battlefield would do nothing.
+   Block layout gives it the whole column to stick within. */
 .arena {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr;
-  align-items: start;
+  display: block;
+}
+
+.arena > * + * {
+  margin-top: 8px;
+}
+
+/* Keeps the fight on screen while you read the log or the stat blocks. The
+   background and the padding matter: without them the log shows through the
+   gap underneath as it slides past. */
+.arena__field {
+  position: sticky;
+  /* 52px of nav plus its 1px bottom border. */
+  top: 53px;
+  z-index: 6;
+  background: #0b0b0c;
+  padding-bottom: 8px;
+}
+
+.arena__field + * {
+  margin-top: 0;
 }
 
 /* Grid children default to min-width:auto, which lets long move names push the
@@ -64,44 +118,171 @@ canvas {
   min-width: 0;
 }
 
-.arena__field {
-  order: -1;
-}
-
+/* Block layout — and therefore the sticky battlefield — holds all the way to
+   the desktop grid at 900px. Pairing the stat panels at 560px happens inside
+   .arena__stats-mobile so .arena itself can stay block: the moment it becomes a
+   grid, the battlefield stops sticking. */
 @media (min-width: 560px) {
-  .arena {
+  .arena > * + * {
+    margin-top: 12px;
+  }
+
+  .arena__field + * {
+    margin-top: 0;
+  }
+
+  .arena__stats-mobile {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .arena__field {
-    grid-column: 1 / -1;
-  }
-
-  .arena__stat--a {
-    grid-column: 1;
-  }
-
-  .arena__stat--b {
-    grid-column: 2;
   }
 }
 
 @media (min-width: 900px) {
   .arena {
+    display: grid;
+    gap: 12px;
+    align-items: start;
     grid-template-columns: 264px minmax(0, 1fr) 264px;
+    /* Areas rather than order, so the DOM can stay in phone reading order. */
+    grid-template-areas:
+      'statA field statB'
+      'log   log   log'
+      'tail  tail  tail';
   }
 
+  .arena > * + *,
+  .arena__field + * {
+    margin-top: 0;
+  }
+
+  /* Both panels are on screen at this width — nothing to keep in view. */
   .arena__field {
-    grid-column: 2;
-    order: 0;
+    grid-area: field;
+    position: static;
+    background: none;
+    padding-bottom: 0;
   }
-
   .arena__stat--a {
-    grid-column: 1;
+    grid-area: statA;
+  }
+  .arena__stat--b {
+    grid-area: statB;
+  }
+  .arena__log {
+    grid-area: log;
+  }
+  .arena__tail {
+    grid-area: tail;
+  }
+}
+
+/* Shorter on a phone so the log and buttons clear the fold. */
+.battlefield {
+  /* Ground band carries each fighter's move names. */
+  --ground: 58px;
+  position: relative;
+  height: 174px;
+  overflow: hidden;
+}
+
+/* Stat bars for both fighters, phone only — the desktop layout already shows
+   them in the flanking panels. */
+.arena__stats-mobile {
+  display: grid;
+  gap: 8px;
+}
+
+.battlefield__ground {
+  height: var(--ground);
+}
+
+.battlefield__actors {
+  bottom: var(--ground);
+}
+
+/* Fixed, not max-height: the log must not resize as lines land, or the buttons
+   below it walk down the screen mid-fight. */
+.arena__log-scroll {
+  height: 150px;
+}
+
+/* Pinned, not sticky: sticky only engages once there's something to scroll, so
+   on a screen that already fits the bar just sat wherever the content ended. */
+.arena__tail {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: #0b0b0c;
+  border-top: 1px solid #2a2a31;
+  padding: 10px 8px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.arena__tail-inner {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  display: grid;
+  gap: 10px;
+}
+
+/* Fight again / build someone new share a row — one button's height back. */
+.arena__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Half-width buttons can't carry the full-size type without wrapping. */
+.arena__actions button {
+  font-size: 12px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* Reserve the pinned bar's space so the log never hides underneath it. */
+.arena {
+  padding-bottom: 148px;
+}
+
+/* Stats are reference material — on a phone they live behind a tap on the
+   fighter's name instead of taking a screen of their own. */
+.arena__stat {
+  display: none;
+}
+
+@media (min-width: 560px) {
+  .battlefield {
+    --ground: 76px;
+    height: 240px;
   }
 
-  .arena__stat--b {
-    grid-column: 3;
+  .arena__log-scroll {
+    height: 200px;
+  }
+}
+
+@media (min-width: 900px) {
+  .arena__stat {
+    display: block;
+  }
+
+  .arena__stats-mobile {
+    display: none;
+  }
+
+  .arena {
+    padding-bottom: 0;
+  }
+
+  .arena__tail {
+    position: static;
+    border-top: none;
+    padding: 0;
+  }
+
+  .arena__actions {
+    grid-template-columns: 1fr;
   }
 }
 
