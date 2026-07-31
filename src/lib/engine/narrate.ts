@@ -1,4 +1,5 @@
 import type { MoveEffect } from './types'
+import type { PressureTrack } from './victory'
 
 interface Beat {
   attacker: string
@@ -49,6 +50,21 @@ export function stunnedText(name: string): string {
 
 export function hesitateText(name: string): string {
   return `${name} is slow off the mark.`
+}
+
+/**
+ * The beat where a meter caps. Deliberately vague about *what* just happened —
+ * victoryText names it a line later, and the gap between the two reads well.
+ */
+export function pressureText(track: PressureTrack, winner: string, loser: string): string {
+  switch (track) {
+    case 'crowd':
+      return `The room belongs to ${winner} now. ${loser} is talking to nobody.`
+    case 'hex':
+      return `Something goes quiet and wrong around ${winner}. ${loser} stops being a factor.`
+    case 'fate':
+      return `The odds, the lighting, and the paperwork all tilt toward ${winner}. ${loser} never had it.`
+  }
 }
 
 export function selfHarmText(name: string, amount: number, reason: 'overheat' | 'stamina'): string {

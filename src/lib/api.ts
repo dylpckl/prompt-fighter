@@ -1,4 +1,5 @@
 import type { Fighter, FighterPrompts, SimResult, Sprite } from '@/lib/engine/types'
+import type { VictoryType } from '@/lib/engine/victory'
 
 export interface FightResult extends SimResult {
   opponent: Fighter
@@ -68,4 +69,122 @@ export async function fetchFighter(id: string): Promise<Fighter | null> {
   } catch {
     return null
   }
+}
+
+// --- Bracket mode ----------------------------------------------------------
+//
+// Field names are snake_case because they mirror the columns, exactly like the
+// fighter rows the other endpoints return. Timestamps are ISO strings.
+
+export type RoomStatus = 'lobby' | 'running' | 'done'
+
+/** A seat in the lobby, with everything needed to draw it. */
+export interface RoomEntrant {
+  seat: number
+  fighter_id: string
+  name: string
+  title: string
+  /** Null only if the fighter row has gone missing under us. */
+  sprite: Sprite | null
+  /** True for the seat belonging to the polling session. */
+  is_you: boolean
+}
+
+/** One node of the tree. Deliberately carries no turn log — see `live`. */
+export interface BracketMatch {
+  /** 1-indexed. Round `rounds` is the final. */
+  round: number
+  /** 0-indexed within the round. Winners feed round+1, slot floor(slot/2). */
+  slot: number
+  a_fighter: string | null
+  b_fighter: string | null
+  winner: string | null
+  /** Exactly one side present: the other walks through without a fight. */
+  bye: boolean
+  /** Set once the match has been played. */
+  victory: VictoryType | null
+  starts_at: string | null
+  ends_at: string | null
+}
+
+/**
+ * The match currently on screen. Everyone gets the same log and the same
+ * `starts_at`, so everyone renders the same beat:
+ *
+ *   beat = Math.floor((serverNow - Date.parse(starts_at)) / beat_ms)
+ *
+ * where `serverNow` is the local clock plus the offset derived once from
+ * `server_now`. No push channel involved.
+ */
+export interface LiveMatch {
+  round: number
+  slot: number
+  a_fighter: string | null
+  b_fighter: string | null
+  bye: boolean
+  starts_at: string
+  ends_at: string
+  /** Null for a bye — nobody fought. `a` is the fighter in `a_fighter`. */
+  result: SimResult | null
+}
+
+export interface RoomView {
+  room: {
+    code: string
+    status: RoomStatus
+    /** Seats on offer, not the bracket size — the bracket fits whoever showed up. */
+    size: number
+    /** Rounds in the drawn bracket. 0 while still in the lobby. */
+    rounds: number
+    /** Only true when the polling session opened the room. */
+    is_host: boolean
+    created_at: string
+    expires_at: string
+  }
+  entrants: RoomEntrant[]
+  bracket: BracketMatch[]
+  live: LiveMatch | null
+  /** Fighter id, set once the room is 'done'. */
+  champion_id: string | null
+  /** Sample once against the local clock to get an offset; then never again. */
+  server_now: string
+  beat_ms: number
+}
+
+export function createRoom(sessionId: string, size: number): Promise<{ code: string }> {
+  return request('/api/room', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, size }),
+  })
+}
+
+export function joinRoom(
+  code: string,
+  sessionId: string,
+  fighterId: string,
+): Promise<{ seat: number }> {
+  return request(`/api/room/${encodeURIComponent(code)}/join`, {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, fighterId }),
+  })
+}
+
+/** Host only. Draws the bracket and starts match one. */
+export function startRoom(
+  code: string,
+  sessionId: string,
+): Promise<{ started: true; size: number; rounds: number }> {
+  return request(`/api/room/${encodeURIComponent(code)}/start`, {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  })
+}
+
+/**
+ * The whole room in one call — poll it every `POLL_MS`. Passing the session id
+ * is what fills in `is_host` and `is_you`; it is optional for a pure spectator.
+ */
+export function fetchRoom(code: string, sessionId?: string): Promise<RoomView> {
+  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''
+  return request(`/api/room/${encodeURIComponent(code)}${query}`)
 }

@@ -11,6 +11,10 @@ export const STAT_HELP: Record<keyof Stats, string> = {
   atk: 'Scales every hit you land — damage is roughly power × (attack ÷ (their defense + 10)) × 7.',
   def: 'Blunts incoming damage. It sits in a divisor, so the first few points help more than the last few.',
   spd: 'Decides who acts first, and nothing else. It does not give you more turns or charge your meter faster.',
+  cha: 'Fills the crowd meter every beat. Cap it and you win on presence — politics, a roast, a wedding — whatever the health bars say.',
+  wil: 'Resists all three pressure meters at once, with diminishing returns. It never makes you immune, it only buys time.',
+  arc: 'Fills the hex meter every beat. Cap it and the fight ends in a curse, a banishment, or something nobody can explain.',
+  luk: 'Fills the fate meter every beat. Cap it and you win on circumstance — a lapsed licence, a market crash, the promoter being your parent.',
 }
 
 export const MOVE_HELP: Record<MoveEffect, string> = {

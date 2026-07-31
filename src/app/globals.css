@@ -114,6 +114,89 @@ canvas {
   gap: 12px;
 }
 
+/* Four labels in the header is as many as the tracking allows; close the gaps
+   up before a phone starts scrolling sideways. */
+.nav__links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+@media (max-width: 480px) {
+  .nav__links {
+    gap: 12px;
+  }
+}
+
+/* --- Bracket mode ------------------------------------------------------- */
+
+/* The room code gets read out loud across a room, so it takes as much of the
+   width as it can get. The indent cancels the trailing letter-space, which
+   otherwise pushes the whole thing visually left of centre. */
+.lobby__code {
+  font-size: clamp(56px, 22vw, 96px);
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+}
+
+.lobby__share {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.lobby__share > span {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Two seats across on a phone, more as the column allows. A seat below ~150px
+   can't hold a sprite and a name on one line. */
+.lobby__seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+/* Sixteen entrants is four columns, which will not fit a phone at a legible
+   type size however it's arranged — so the columns keep their width and the
+   tree scrolls sideways instead of the names shrinking away. Each column
+   spreads its matches over the full height, which lands a round roughly
+   between the two matches feeding it without drawing a single connector. */
+.bracket {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bracket__round {
+  flex: 1 0 132px;
+  min-width: 132px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bracket__matches {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 8px;
+}
+
+@media (min-width: 560px) {
+  .bracket__round {
+    flex-basis: 168px;
+    min-width: 168px;
+  }
+}
+
 /* Generation is one opaque model call, so there is no real percentage to show.
    An indeterminate sweep is the honest affordance — it says "working", not
    "63% done". */

@@ -5,6 +5,7 @@ import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
 import { RefusedError, generateFighter } from '@/lib/server/generate'
 import {
   ValidationError,
+  hydrateFighter,
   normalizeFlaw,
   normalizeMove,
   normalizeSprite,
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
       .single()
     if (error) throw error
 
-    return NextResponse.json({ fighter: data })
+    return NextResponse.json({ fighter: hydrateFighter(data) })
   } catch (err) {
     if (err instanceof RefusedError) {
       return NextResponse.json({ error: err.message }, { status: 422 })

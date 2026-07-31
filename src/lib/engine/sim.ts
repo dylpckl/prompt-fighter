@@ -1,13 +1,29 @@
 import { chance, makeRng, range } from './rng'
-import { hesitateText, narrate, selfHarmText, stunnedText } from './narrate'
-import { METER_TO_SPECIAL } from './types'
-import type { FighterCore, Move, SimResult, Side, TurnEvent } from './types'
+import { hesitateText, narrate, pressureText, selfHarmText, stunnedText } from './narrate'
+import {
+  PRESSURE_JITTER_MAX,
+  PRESSURE_JITTER_MIN,
+  PRESSURE_SALT,
+  PRESSURE_THRESHOLD,
+  PRESSURE_TRACKS,
+  TRACK_RATE,
+  TRACK_SOURCE,
+  classifyVictory,
+  pressureMood,
+  pressurePush,
+  wilResistance,
+} from './victory'
+import type { PressureTrack, VictorySideView } from './victory'
+import { METER_TO_SPECIAL, SPIRIT_DEFAULT } from './types'
+import type { FighterCore, Move, SimResult, Side, SpiritKey, TurnEvent } from './types'
 
 const MAX_ACTIONS_PER_SIDE = 14
 const DAMAGE_COEFFICIENT = 7
 const OVERHEAT_COST = 8
 const STAMINA_COST = 4
 const STAMINA_AFTER_ACTION = 6
+
+type Meters = Record<PressureTrack, number>
 
 interface SideState {
   fighter: FighterCore
@@ -18,6 +34,15 @@ interface SideState {
   stunned: boolean
   actions: number
   damageDealt: number
+  /** The non-physical half of the fight. Capping one of these ends it outright. */
+  pressure: Meters
+  // Tallies below feed victory classification only — nothing in the resolution
+  // loop reads them.
+  damageTaken: number
+  drainDealt: number
+  selfHarm: number
+  landed: number
+  missed: number
 }
 
 export function maxHpFor(hpStat: number): number {
@@ -35,7 +60,87 @@ function initSide(fighter: FighterCore): SideState {
     stunned: false,
     actions: 0,
     damageDealt: 0,
+    pressure: { crowd: 0, hex: 0, fate: 0 },
+    damageTaken: 0,
+    drainDealt: 0,
+    selfHarm: 0,
+    landed: 0,
+    missed: 0,
   }
+}
+
+function view(s: SideState): VictorySideView {
+  return {
+    hp: s.hp,
+    maxHp: s.maxHp,
+    damageDealt: s.damageDealt,
+    damageTaken: s.damageTaken,
+    drainDealt: s.drainDealt,
+    selfHarm: s.selfHarm,
+    landed: s.landed,
+    missed: s.missed,
+    actions: s.actions,
+    atk: s.fighter.stats.atk,
+    def: s.fighter.stats.def,
+    flaw: s.fighter.flaw.effect,
+    spirit: {
+      cha: spiritOf(s, 'cha'),
+      wil: spiritOf(s, 'wil'),
+      arc: spiritOf(s, 'arc'),
+      luk: spiritOf(s, 'luk'),
+    },
+  }
+}
+
+/**
+ * Fighter rows written before the spirit budget existed have no spirit keys, and
+ * an undefined here would poison a meter with NaN all the way to the client.
+ * Migration 0003 backfills them; this is the belt to that pair of braces.
+ */
+function spiritOf(s: SideState, key: SpiritKey): number {
+  return s.fighter.stats[key] ?? SPIRIT_DEFAULT
+}
+
+/**
+ * Meters are carried as floats and reported as whole points out of the cap.
+ * Floored and clamped, not rounded, so a reported meter reads full exactly when
+ * the fight actually stopped — no 100/100 on a bout that carried on.
+ */
+function readMeters(s: SideState): Meters {
+  const read = (v: number) => Math.min(PRESSURE_THRESHOLD, Math.floor(v))
+  return {
+    crowd: read(s.pressure.crowd),
+    hex: read(s.pressure.hex),
+    fate: read(s.pressure.fate),
+  }
+}
+
+/**
+ * One beat of pressure for the acting side. Their cha/arc/luk lean on three
+ * tracks at once and the opponent's wil slows all three down at once, so a
+ * fighter with nothing to say never gets going and a stubborn one is very hard
+ * — but never impossible — to talk out of the ring.
+ *
+ * The jitter is drawn from a stream of its own, unconditionally and in a fixed
+ * order, so no branch here can move the sim's rng by a single call.
+ */
+function accruePressure(
+  me: SideState,
+  foe: SideState,
+  jitter: () => number,
+  mood: number,
+): PressureTrack | null {
+  let capped: PressureTrack | null = null
+  const resistance = wilResistance(spiritOf(foe, 'wil'))
+
+  for (const track of PRESSURE_TRACKS) {
+    const push = pressurePush(spiritOf(me, TRACK_SOURCE[track]))
+    const wobble = range(jitter, PRESSURE_JITTER_MIN, PRESSURE_JITTER_MAX)
+    me.pressure[track] += push * TRACK_RATE[track] * resistance * wobble * mood
+    if (!capped && me.pressure[track] >= PRESSURE_THRESHOLD) capped = track
+  }
+
+  return capped
 }
 
 /** Faster fighter opens. Ties break on attack, then on the challenger. */
@@ -58,15 +163,28 @@ function missChance(move: Move, flaw: FighterCore['flaw']): number {
 
 export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResult {
   const rng = makeRng(seed)
+  // Pressure gets its own stream. Drawing its jitter from `rng` would shift
+  // every roll after it and silently rewrite every fight already on record.
+  const pressureRng = makeRng((seed ^ PRESSURE_SALT) >>> 0)
+  // One draw, before the loop and before anything can branch: how receptive the
+  // room is tonight. Shared by both sides so it tilts the bout, not a fighter.
+  const mood = pressureMood(pressureRng())
   const state: Record<Side, SideState> = { a: initSide(a), b: initSide(b) }
   const order: Side[] = firstMover(a, b) === 'a' ? ['a', 'b'] : ['b', 'a']
   const log: TurnEvent[] = []
 
   let turn = 0
   let winner: Side | null = null
+  let pressure: PressureTrack | null = null
 
   const snapshot = () => ({ a: state.a.hp, b: state.b.hp })
   const meterSnapshot = () => ({ a: state.a.meter, b: state.b.meter })
+
+  /** Meters are display values, so they're squared off on the way out, never in place. */
+  const meters = (): Record<Side, Meters> => ({
+    a: readMeters(state.a),
+    b: readMeters(state.b),
+  })
 
   const push = (
     actor: Side,
@@ -86,6 +204,7 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
       heal,
       missed,
       hp: snapshot(),
+      pressure: meters(),
       meter: meterSnapshot(),
       text,
     })
@@ -95,6 +214,20 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
     for (const side of order) {
       const me = state[side]
       const foe = state[other(side)]
+
+      // A beat is one side's action, and you work the room on your own time.
+      // Accrued up front so the meters shown on this beat include it, and so
+      // every branch below draws the same number of jitter values.
+      const capped = accruePressure(me, foe, pressureRng, mood)
+
+      // --- The meter tips over before the punch is thrown ------------------
+      if (capped) {
+        winner = side
+        pressure = capped
+        const text = pressureText(capped, me.fighter.name, foe.fighter.name)
+        push(side, '—', 'damage', 0, 0, false, text)
+        break outer
+      }
 
       // --- Flaws that cost an action outright -----------------------------
       if (me.stunned) {
@@ -126,6 +259,7 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
 
       // --- Resolve --------------------------------------------------------
       const missed = chance(rng, missChance(move, me.fighter.flaw))
+      if (missed) me.missed += 1
       let damage = 0
       let heal = 0
 
@@ -154,8 +288,11 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
           damage = Math.max(1, Math.round(raw))
           foe.hp = Math.max(0, foe.hp - damage)
           me.damageDealt += damage
+          me.landed += 1
+          foe.damageTaken += damage
 
           if (move.effect === 'drain') {
+            me.drainDealt += damage
             heal = Math.min(Math.round(damage * 0.5), me.maxHp - me.hp)
             me.hp += heal
           }
@@ -171,7 +308,10 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
         selfHarm += STAMINA_COST
         if (!selfHarmReason) selfHarmReason = 'stamina'
       }
-      if (selfHarm > 0) me.hp = Math.max(0, me.hp - selfHarm)
+      if (selfHarm > 0) {
+        me.hp = Math.max(0, me.hp - selfHarm)
+        me.selfHarm += selfHarm
+      }
 
       const lethal = foe.hp === 0
       let text = narrate({
@@ -213,5 +353,22 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
     } else winner = 'a'
   }
 
-  return { log, winner, maxHp: { a: state.a.maxHp, b: state.b.maxHp }, decision }
+  const last = log[log.length - 1]
+  const victory = classifyVictory({
+    winner,
+    decision,
+    seed,
+    finalBlow: last ? { actor: last.actor, effect: last.effect, damage: last.damage } : null,
+    sides: { a: view(state.a), b: view(state.b) },
+    pressure,
+  })
+
+  return {
+    log,
+    winner,
+    maxHp: { a: state.a.maxHp, b: state.b.maxHp },
+    decision,
+    pressure,
+    victory,
+  }
 }

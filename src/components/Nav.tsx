@@ -17,7 +17,10 @@ const link = {
  * floating centered pair.
  */
 const LINKS = [
-  { href: '/fighters', text: 'My fighters' },
+  { href: '/room', text: 'Rooms' },
+  // Shortened when Rooms joined the row: four labels at this tracking overflow
+  // a 375px phone otherwise, and the header must not scroll sideways.
+  { href: '/fighters', text: 'Fighters' },
   { href: '/leaderboard', text: 'Leaderboard' },
 ] as const
 
@@ -49,16 +52,17 @@ export function Nav() {
           prompt fight
         </Link>
 
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          {LINKS.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              style={{ ...link, color: pathname === l.href ? t.text : t.faint }}
-            >
-              {l.text}
-            </Link>
-          ))}
+        <nav className="nav__links">
+          {LINKS.map((l) => {
+            // A room lives at /room/CODE, so the tab has to stay lit once
+            // you're inside one.
+            const active = l.href === '/room' ? pathname.startsWith('/room') : pathname === l.href
+            return (
+              <Link key={l.href} href={l.href} style={{ ...link, color: active ? t.text : t.faint }}>
+                {l.text}
+              </Link>
+            )
+          })}
         </nav>
       </div>
     </header>
