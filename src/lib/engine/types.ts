@@ -4,6 +4,9 @@
 // from this vocabulary, it doesn't invent mechanics. A prompt asking for an
 // "instantly wins" ability can only ever land on one of these.
 
+// Type-only, so this doesn't create a runtime cycle with victory.ts.
+import type { VictoryType } from './victory'
+
 export const MOVE_EFFECTS = ['damage', 'heavy', 'heal', 'guard', 'drain', 'stun'] as const
 export const FLAW_EFFECTS = ['glass', 'slow_start', 'stamina', 'wild', 'overheat'] as const
 
@@ -80,6 +83,8 @@ export interface SimResult {
   maxHp: Record<Side, number>
   /** True when nobody was knocked out and the win went to remaining HP. */
   decision: boolean
+  /** How the win read. Derived from the finished fight; never decides it. */
+  victory: VictoryType
 }
 
 export interface FightResponse extends SimResult {

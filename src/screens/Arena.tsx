@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Fighter, Side } from '@/lib/engine/types'
 import type { FightResult } from '@/lib/api'
+import { VICTORY_LABELS, victoryText } from '@/lib/engine/victory'
 import { Sprite } from '@/components/Sprite'
 import { button, label, panel, t } from '@/theme'
 
@@ -17,7 +18,7 @@ interface Props {
 }
 
 export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props) {
-  const { log, opponent, maxHp, winner, decision } = result
+  const { log, opponent, maxHp, winner, victory } = result
   const [step, setStep] = useState(0)
 
   // A fresh result means a fresh replay.
@@ -103,13 +104,14 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
             }}
           >
             <p style={{ ...label, margin: 0, color: playerWon ? t.good : t.accent }}>
-              {playerWon ? 'Victory' : 'Defeat'}
-              {decision ? ' — by decision' : ''}
+              {playerWon ? 'Victory' : 'Defeat'} — {VICTORY_LABELS[victory]}
             </p>
-            <p style={{ margin: '8px 0 0', fontSize: 15 }}>
-              {playerWon
-                ? `${player.name} is still standing.`
-                : `${opponent.name} takes it.`}
+            <p style={{ margin: '8px 0 0', fontSize: 15, lineHeight: 1.5 }}>
+              {victoryText(
+                victory,
+                playerWon ? player.name : opponent.name,
+                playerWon ? opponent.name : player.name,
+              )}
             </p>
           </div>
 

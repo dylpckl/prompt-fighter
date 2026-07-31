@@ -24,7 +24,7 @@ export const FIGHTER_SCHEMA = {
     safe: {
       type: 'boolean',
       description:
-        'False if the prompts contain slurs, sexual content, real-person targeting, or hate. True otherwise.',
+        'False if the prompts contain slurs, hate, explicit sexual content, or target a real person. Flirtation and innuendo are fine. True otherwise.',
     },
     name: { type: 'string', description: 'Fighter name, 24 characters or fewer.' },
     title: { type: 'string', description: 'Short epithet, 32 characters or fewer.' },
@@ -62,7 +62,11 @@ export const SYSTEM_PROMPT = `You are the generator for a fighting game. A playe
 
 ## Safety
 
-First, judge the four prompts. Set "safe" to false if they contain slurs, hate speech, sexual content, graphic real-world violence against identifiable people, or target a real private individual. Absurd, gross, violent-in-a-cartoon-way, and tasteless-but-harmless prompts are fine — this is a fighting game, and weird is the point. When "safe" is false, still fill in every other field with a placeholder; the fighter will be discarded.
+First, judge the four prompts. Set "safe" to false if they contain slurs, hate speech, explicit sexual content, graphic real-world violence against identifiable people, or target a real private individual.
+
+Absurd, gross, violent-in-a-cartoon-way, and tasteless-but-harmless prompts are fine — this is a fighting game, and weird is the point. A fighter whose whole deal is being alluring, flirtatious, or seductive is also fine: charm is a legitimate way to win a fight here. Write those fighters at the level of a newspaper cartoon — suggestive is fine, explicit is not. Keep names, titles, and move names clean enough to read aloud to a room, because that is exactly what happens to them.
+
+When "safe" is false, still fill in every other field with a placeholder; the fighter will be discarded.
 
 ## Name and title
 

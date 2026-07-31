@@ -1,5 +1,7 @@
 import { chance, makeRng, range } from './rng'
 import { hesitateText, narrate, selfHarmText, stunnedText } from './narrate'
+import { classifyVictory } from './victory'
+import type { VictorySideView } from './victory'
 import type { FighterCore, Move, SimResult, Side, TurnEvent } from './types'
 
 const MAX_ACTIONS_PER_SIDE = 14
@@ -19,6 +21,13 @@ interface SideState {
   stunned: boolean
   actions: number
   damageDealt: number
+  // Tallies below feed victory classification only — nothing in the resolution
+  // loop reads them.
+  damageTaken: number
+  drainDealt: number
+  selfHarm: number
+  landed: number
+  missed: number
 }
 
 export function maxHpFor(hpStat: number): number {
@@ -36,6 +45,28 @@ function initSide(fighter: FighterCore): SideState {
     stunned: false,
     actions: 0,
     damageDealt: 0,
+    damageTaken: 0,
+    drainDealt: 0,
+    selfHarm: 0,
+    landed: 0,
+    missed: 0,
+  }
+}
+
+function view(s: SideState): VictorySideView {
+  return {
+    hp: s.hp,
+    maxHp: s.maxHp,
+    damageDealt: s.damageDealt,
+    damageTaken: s.damageTaken,
+    drainDealt: s.drainDealt,
+    selfHarm: s.selfHarm,
+    landed: s.landed,
+    missed: s.missed,
+    actions: s.actions,
+    atk: s.fighter.stats.atk,
+    def: s.fighter.stats.def,
+    flaw: s.fighter.flaw.effect,
   }
 }
 
@@ -115,6 +146,7 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
 
       // --- Resolve --------------------------------------------------------
       const missed = chance(rng, missChance(move, me.fighter.flaw))
+      if (missed) me.missed += 1
       let damage = 0
       let heal = 0
 
@@ -143,8 +175,11 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
           damage = Math.max(1, Math.round(raw))
           foe.hp = Math.max(0, foe.hp - damage)
           me.damageDealt += damage
+          me.landed += 1
+          foe.damageTaken += damage
 
           if (move.effect === 'drain') {
+            me.drainDealt += damage
             heal = Math.min(Math.round(damage * 0.5), me.maxHp - me.hp)
             me.hp += heal
           }
@@ -160,7 +195,10 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
         selfHarm += STAMINA_COST
         if (!selfHarmReason) selfHarmReason = 'stamina'
       }
-      if (selfHarm > 0) me.hp = Math.max(0, me.hp - selfHarm)
+      if (selfHarm > 0) {
+        me.hp = Math.max(0, me.hp - selfHarm)
+        me.selfHarm += selfHarm
+      }
 
       const lethal = foe.hp === 0
       let text = narrate({
@@ -202,5 +240,20 @@ export function simulate(a: FighterCore, b: FighterCore, seed: number): SimResul
     } else winner = 'a'
   }
 
-  return { log, winner, maxHp: { a: state.a.maxHp, b: state.b.maxHp }, decision }
+  const last = log[log.length - 1]
+  const victory = classifyVictory({
+    winner,
+    decision,
+    seed,
+    finalBlow: last ? { actor: last.actor, effect: last.effect, damage: last.damage } : null,
+    sides: { a: view(state.a), b: view(state.b) },
+  })
+
+  return {
+    log,
+    winner,
+    maxHp: { a: state.a.maxHp, b: state.b.maxHp },
+    decision,
+    victory,
+  }
 }

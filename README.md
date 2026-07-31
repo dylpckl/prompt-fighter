@@ -32,6 +32,15 @@ can express an enum but not "these four numbers must total 30".
 it; it never computes a result. Records stay honest, and because the sim is
 `simulate(a, b, seed)` over a seeded PRNG, any fight can be re-derived exactly.
 
+**Victory types are labels, not rules.** A fight can be won by knockout, but
+also by overkill, ring-out, disqualification, self-destruct, lapsed paperwork,
+or a falling lighting rig. `classifyVictory` runs *after* the sim loop, reads
+only the final tallies, and never touches `winner` or `decision` — so a new
+victory type can't change who won, and every seed still resolves the way it
+always did. The two flavour rolls draw from their own RNG stream for the same
+reason: taking from the sim's stream would shift every later roll and silently
+rewrite history.
+
 **Narration is templated.** The creative work already happened upstream — the
 model named the fighter and its moves — so stitching those names into a verb
 reads well and costs nothing per fight.
@@ -51,7 +60,7 @@ src/app/                    layout, the single client page, and the API routes
 src/app/api/create-fighter/ prompts → schema-enforced generation → row
 src/app/api/fight/          pick ghost → simulate → record → turn log
 src/app/api/fighter/[id]/   returning-player lookup
-src/lib/engine/             types, RNG, sim, narration, validation, prompt
+src/lib/engine/             types, RNG, sim, narration, victory, validation, prompt
 src/lib/server/             service-role client, Anthropic call
 src/components, src/screens sprite canvas, builder, reveal, arena
 supabase/migrations/        schema, RLS, pick_ghost + record_result
