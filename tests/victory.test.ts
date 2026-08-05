@@ -345,10 +345,18 @@ describe('classification safety properties', () => {
   })
 
   /**
-   * The tuning guard. Pressure is meant to be the exciting minority read, not
-   * the way most fights end — if a constant drifts, this is what notices.
+   * The tuning guard. Pressure is meant to be a *peer* of the knockout — one of
+   * the ways a fight ends, at roughly the rate the health bars end one — and the
+   * band is wide on both sides because both edges are real failures.
+   *
+   * Too low and the mechanic is decorative: the meters creep to a quarter of the
+   * bar and stop, which is precisely where the constants sat before the retune,
+   * and three quarters of the spirit budget stops meaning anything. Too high and
+   * the physical fight is the decoration instead — the health bars become a
+   * countdown nobody reads, and every bout is decided by a stat the player never
+   * connects to the punching.
    */
-  it('keeps physical victories clearly dominant', () => {
+  it('keeps a capped meter about as likely as a knockout', () => {
     const rng = makeRng(4242)
     const seen = new Set<VictoryType>()
     let pressureWins = 0
@@ -361,8 +369,8 @@ describe('classification safety properties', () => {
     }
 
     const share = pressureWins / fights
-    expect(share).toBeGreaterThan(0.03)
-    expect(share).toBeLessThan(0.2)
+    expect(share).toBeGreaterThan(0.15)
+    expect(share).toBeLessThan(0.45)
     // Every track has to be live at this sample size.
     for (const track of PRESSURE_TRACKS) {
       expect(PRESSURE_POOLS[track].some((type) => seen.has(type))).toBe(true)
@@ -372,12 +380,12 @@ describe('classification safety properties', () => {
   /**
    * The guard above draws its spirit lines by scattering the budget, which is
    * *not* the shape SYSTEM_PROMPT asks for — it tells the model to avoid flat
-   * spreads and to commit when the description commits. Tuning against scattered
-   * lines is how the mechanic ended up deciding half of all fights in practice
-   * while the sampled rate looked fine, so the committed shape gets its own
-   * guard: pressure may be common between two specialists, never the norm.
+   * spreads and to commit when the description commits. The committed shape gets
+   * its own guard because it is the one that has to pay off: two fighters who
+   * both went all-in on a track *should* usually settle it on a meter, and the
+   * ceiling here is only to keep "usually" from becoming "always".
    */
-  it('stays a minority read even between two committed specialists', () => {
+  it('lets two committed specialists usually settle it on a meter', () => {
     const rng = makeRng(1717)
     let pressureWins = 0
     const fights = 3000
@@ -408,9 +416,73 @@ describe('classification safety properties', () => {
     }
 
     const share = pressureWins / fights
-    // Live, clearly — and still losing to the health bars more often than not.
-    expect(share).toBeGreaterThan(0.1)
-    expect(share).toBeLessThan(0.45)
+    // The payoff for commitment — and still not a certainty.
+    expect(share).toBeGreaterThan(0.35)
+    expect(share).toBeLessThan(0.75)
+  })
+
+  /**
+   * What "as likely as a knockout" is actually supposed to mean: a *rate that
+   * tracks the stat line*, not a coin flip bolted onto every fight.
+   *
+   * This is the guard the previous tuning was missing, and the one that would
+   * have caught what was wrong with it. Both share guards above can be satisfied
+   * by a mechanic that is effectively a threshold — under the old constants the
+   * fight-long mood draw was bunched so tightly that a given pair of spirit lines
+   * had a near-deterministic verdict, so Presence 8 capped a meter 15% of the
+   * time and Presence 6 capped 3%, and everything below all-in was playing a
+   * different game. The aggregate rate looked defensible the whole time.
+   *
+   * So: assert the shape, not the average. More Presence must mean more crowd
+   * wins at every step, the floor must stay inert, and the middle of the range
+   * has to be genuinely live rather than rounding to nothing.
+   */
+  it('pays out on the crowd track in proportion to Presence', () => {
+    /** `cha` as asked, the rest of the budget spread flat behind it. */
+    function presence(cha: number): SpiritStats {
+      const rest = [SPIRIT_MIN, SPIRIT_MIN, SPIRIT_MIN]
+      let left = SPIRIT_TOTAL - cha - SPIRIT_MIN * 3
+      for (let i = 0; left > 0; i = (i + 1) % 3) {
+        if (rest[i] >= SPIRIT_MAX) continue
+        rest[i] += 1
+        left -= 1
+      }
+      return { cha, wil: rest[0], arc: rest[1], luk: rest[2] }
+    }
+
+    /** How often `cha` points of Presence talk a random opponent out of the ring. */
+    function rate(cha: number): number {
+      const rng = makeRng(31337)
+      const fights = 1200
+      let won = 0
+      for (let i = 0; i < fights; i++) {
+        const base = randomFighter(rng, 'A')
+        const a = { ...base, stats: { ...base.stats, ...presence(cha) } }
+        const b = randomFighter(rng, 'B')
+        const result = simulate(a, b, i)
+        if (result.pressure === 'crowd' && result.winner === 'a') won += 1
+      }
+      return won / fights
+    }
+
+    const floor = rate(SPIRIT_MIN)
+    const middling = rate(6)
+    const committed = rate(8)
+    const allIn = rate(SPIRIT_MAX)
+
+    // Nothing above the floor is spent, so nothing is ever pushed. Exactly zero,
+    // not "rarely" — `pressurePush` makes this arithmetic, not statistical.
+    expect(floor).toBe(0)
+
+    // Every point buys something, all the way up.
+    expect(middling).toBeGreaterThan(floor)
+    expect(committed).toBeGreaterThan(middling)
+    expect(allIn).toBeGreaterThan(committed)
+
+    // And the middle of the range is a real option rather than a rounding error.
+    // This is the number that was 2.8% before the retune.
+    expect(middling).toBeGreaterThan(0.05)
+    expect(committed).toBeGreaterThan(0.2)
   })
 
   it('gives every declared type a label and a line', () => {

@@ -77,15 +77,35 @@ bought a hard counter to a mechanic worth a large slice of outcomes. A fraction
 can't do that — Resolve buys a great deal of time and never buys a wall, so
 pushing harder always buys something back.
 
-How often it fires, measured over 20k fights: around 10% when the spirit budget
-is scattered, around a third once both fighters commit a track to the ceiling
-(which is the shape `SYSTEM_PROMPT` asks for), and up to roughly three-quarters
-in the deliberate extreme of a maxed Presence against a floored Resolve. `ko`
-is still the most common outcome by a distance. Note which distribution those
-came from: the constants were originally validated against scattered spreads,
-the generator is explicitly told not to produce scattered spreads, and the gap
-between the two is how a mechanic tuned to "a minority" ended up deciding half
-of all real fights. `tests/victory.test.ts` now guards both distributions.
+How often it fires, measured over 20k fights a population in
+`scripts/pressure-rates.ts` (`npm run pressure`): roughly 35% on moderately
+lopsided spirit lines and roughly 48% on strongly lopsided ones — against 45%
+and 38% knockouts respectively — so a capped meter and a flattened opponent are
+peers, which is the point. Between two fighters who both commit a track to the
+ceiling it is the majority read, and it stays at zero for anyone who bought no
+spirit at all.
+
+That last clause is the whole design, and the first tuning missed it. The
+constants were sized against the *maximum* fight length when most fights end on
+health at about half of it, so meters typically stalled near a quarter of the
+bar and the mechanic read as decorative. Worse, the fight-long mood draw was
+bunched tightly enough that a given pair of spirit lines had a nearly
+deterministic verdict — Presence 8 capped a meter 15% of the time and Presence 6
+capped 3%, so anything short of all-in was playing a different game, and the
+aggregate rate looked defensible throughout. The fix widened that draw as well
+as raising the rates: one point of a spirit stat should move a rate, not flip a
+switch. It is now 39% and 13%. `tests/victory.test.ts` guards the aggregate on
+both distributions *and* the shape of the curve, because the aggregate alone
+cannot tell those two mechanics apart.
+
+One known cost, inherited rather than introduced: the fighters migration `0003`
+backfilled with a flat 5/5/5/5 are middling pushers and middling defenders at
+once, so they take considerably more pressure losses than they score, and
+raising the mechanic's share raised that too — their overall win rate against
+random opponents moves from about 49% to about 40%. The fix if it matters is the
+one `0003` already names: derive a deterministic spirit spread from those
+fighters' stored prompts, rather than nudge these constants back down and switch
+the mechanic off again for everyone.
 
 **New randomness gets its own stream.** This is the rule that makes any of the
 above safe to add. The pressure jitter draws from `makeRng(seed ^
