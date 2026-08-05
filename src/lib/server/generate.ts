@@ -4,7 +4,11 @@ import { FIGHTER_SCHEMA, SYSTEM_PROMPT, buildUserPrompt } from '@/lib/engine/gen
 import { ValidationError } from '@/lib/engine/validate'
 import type { FighterPrompts } from '@/lib/engine/types'
 
-const MODEL = 'claude-opus-5'
+// Sonnet 5 over Opus 5: roughly half the cost per fighter with sprites and
+// names that hold up, including on prompts that try to cheat. Haiku was the
+// false economy — illegible sprites, and it rejects `effort` outright, so
+// dropping another tier is not just an id swap.
+const MODEL = 'claude-sonnet-5'
 
 export interface Generated {
   safe: boolean

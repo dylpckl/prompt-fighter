@@ -1,5 +1,5 @@
 {
-  "name": "prompt-fight",
+  "name": "prompt-fighter",
   "private": true,
   "version": "0.1.0",
   "scripts": {
@@ -8,7 +8,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "seed": "tsx --env-file=.env.local scripts/seed-pool.ts"
+    "seed": "tsx --env-file=.env.local scripts/seed-pool.ts",
+    "pressure": "tsx scripts/pressure-rates.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.0",

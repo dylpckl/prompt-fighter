@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Fighter, Side, Sprite as SpriteData, TurnEvent } from '@/lib/engine/types'
 import { METER_TO_SPECIAL, SPRITE_SIZE } from '@/lib/engine/types'
 import { METER_HELP } from '@/lib/explain'
@@ -7,10 +7,8 @@ import { PRESSURE_THRESHOLD, PRESSURE_TRACKS } from '@/lib/engine/victory'
 import type { PressureTrack } from '@/lib/engine/victory'
 import { Sprite } from '@/components/Sprite'
 import { StatBlock } from '@/components/StatBlock'
-import { label, panel, t } from '@/theme'
+import { button, label, panel, t } from '@/theme'
 
-const FIELD_HEIGHT = 240
-const GROUND_HEIGHT = 76
 
 /**
  * One side of the stage. The solo arena has the whole fighter row and draws the
@@ -61,24 +59,50 @@ export function FightStage({ a, b, log, maxHp, step }: Props) {
     return current.actor === 'a' ? { a: 0, b: clamped } : { a: clamped, b: 0 }
   }, [current, clamped])
 
+  /** Stats are a tap away rather than on screen — the preview already showed
+   *  the matchup, and mid-fight they're reference material competing with the
+   *  thing you're watching. A spectator has no `detail`, so no sheet to open. */
+  const [statsFor, setStatsFor] = useState<Side | null>(null)
+  const sheetFor = statsFor === 'a' ? a : statsFor === 'b' ? b : null
+
   return (
     <div style={{ display: 'grid', gap: 12 }}>
+      {/* DOM order is phone order: the fight, then the stat blocks that scroll
+          under it. Wide screens re-place these with grid areas. */}
       <div className="arena">
-        <div className="arena__stat arena__stat--a">
-          <FighterPanel side={a} />
+        <div className="arena__stage">
+          <div className="arena__field" style={{ display: 'grid', gap: 10 }}>
+            <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <HealthBar
+                  name={a.name}
+                  hp={hp.a}
+                  max={maxHp.a}
+                  meter={meter.a}
+                  side="a"
+                  onShowStats={a.detail ? () => setStatsFor('a') : undefined}
+                />
+                <HealthBar
+                  name={b.name}
+                  hp={hp.b}
+                  max={maxHp.b}
+                  meter={meter.b}
+                  side="b"
+                  onShowStats={b.detail ? () => setStatsFor('b') : undefined}
+                />
+              </div>
+
+              {current && <PressureMeters a={current.pressure.a} b={current.pressure.b} />}
+
+              <Battlefield a={a} b={b} hitKeys={hitKeys} idle={!finished} />
+            </div>
+          </div>
+
+          <BattleLog entries={log.slice(0, clamped)} names={{ a: a.name, b: b.name }} />
         </div>
 
-        <div className="arena__field" style={{ display: 'grid', gap: 10 }}>
-          <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <HealthBar name={a.name} hp={hp.a} max={maxHp.a} meter={meter.a} side="a" />
-              <HealthBar name={b.name} hp={hp.b} max={maxHp.b} meter={meter.b} side="b" />
-            </div>
-
-            {current && <PressureMeters a={current.pressure.a} b={current.pressure.b} />}
-
-            <Battlefield a={a} b={b} hitKeys={hitKeys} idle={!finished} />
-          </div>
+        <div className="arena__stat arena__stat--a">
+          <FighterPanel side={a} />
         </div>
 
         <div className="arena__stat arena__stat--b">
@@ -86,7 +110,40 @@ export function FightStage({ a, b, log, maxHp, step }: Props) {
         </div>
       </div>
 
-      <BattleLog entries={log.slice(0, clamped)} />
+      {sheetFor && (
+        <div
+          onClick={() => setStatsFor(null)}
+          role="presentation"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            background: 'rgba(0,0,0,0.66)',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            padding: 12,
+            animation: 'fadeUp 160ms ease-out',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 440,
+              maxHeight: '82vh',
+              overflowY: 'auto',
+              display: 'grid',
+              gap: 10,
+            }}
+          >
+            <FighterPanel side={sheetFor} />
+            <button onClick={() => setStatsFor(null)} style={button('ghost')}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -183,29 +240,29 @@ function Battlefield({
   idle: boolean
 }) {
   return (
+    // Height and ground depth come from CSS so they can shrink on a phone —
+    // inline styles can't express a media query.
     <div
+      className="battlefield"
       style={{
-        position: 'relative',
-        height: FIELD_HEIGHT,
-        overflow: 'hidden',
         border: `1px solid ${t.line}`,
         borderRadius: 3,
         background: `linear-gradient(180deg, #0e0e11 0%, ${t.panel} 100%)`,
       }}
     >
       <div
+        className="battlefield__ground"
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: 0,
-          height: GROUND_HEIGHT,
           background: t.panelHi,
           borderTop: `1px solid ${t.line}`,
         }}
       />
 
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: GROUND_HEIGHT }}>
+      <div className="battlefield__actors" style={{ position: 'absolute', left: 0, right: 0 }}>
         <div
           style={{
             width: '100%',
@@ -221,6 +278,7 @@ function Battlefield({
           <StageSprite sprite={b.sprite} scale={7} flip hitKey={hitKeys.b} idle={idle} />
         </div>
       </div>
+
     </div>
   )
 }
@@ -278,7 +336,13 @@ function FighterPanel({ side }: { side: StageSide }) {
  * Appends as the replay runs and sticks to the bottom, so the fight reads as a
  * transcript building up rather than one line replacing another.
  */
-function BattleLog({ entries }: { entries: TurnEvent[] }) {
+function BattleLog({
+  entries,
+  names,
+}: {
+  entries: TurnEvent[]
+  names: Record<Side, string>
+}) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -287,13 +351,15 @@ function BattleLog({ entries }: { entries: TurnEvent[] }) {
   }, [entries.length])
 
   return (
-    <div style={{ ...panel, padding: 14, display: 'grid', gap: 10 }}>
+    <div className="arena__log" style={{ ...panel, padding: 14, display: 'grid', gap: 10 }}>
       <p style={{ ...label, margin: 0 }}>Battle log</p>
 
+      {/* Fixed height, not a max: a log that grows walks everything below it
+          down the screen as the fight goes on. */}
       <div
         ref={ref}
+        className="arena__log-scroll"
         style={{
-          maxHeight: 200,
           overflowY: 'auto',
           display: 'grid',
           gap: 6,
@@ -305,47 +371,53 @@ function BattleLog({ entries }: { entries: TurnEvent[] }) {
         ) : (
           entries.map((e, i) => {
             const last = i === entries.length - 1
+            // A turn nobody acted on — stunned, or a slow start. The sim leaves
+            // the move as an em dash; say why rather than showing a bare row.
+            const lostTurn = e.move === '—'
+
             return (
               <div
                 key={`${e.turn}-${i}`}
                 style={{
                   display: 'flex',
-                  gap: 10,
+                  gap: 8,
                   alignItems: 'baseline',
                   animation: last ? 'fadeUp 200ms ease-out' : undefined,
+                  color: last ? t.text : t.dim,
                 }}
               >
-                <span style={{ fontSize: 11, color: t.faint, width: 22, flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: t.faint, width: 20, flexShrink: 0 }}>
                   {e.turn}
                 </span>
+
+                <span
+                  style={{
+                    fontSize: 12,
+                    width: 92,
+                    flexShrink: 0,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {names[e.actor]}
+                </span>
+
                 <span
                   style={{
                     fontSize: 13,
-                    lineHeight: 1.5,
-                    color: last ? t.text : t.dim,
+                    minWidth: 0,
+                    flex: 1,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    color: lostTurn ? t.faint : undefined,
                   }}
                 >
-                  {e.text}
+                  {lostTurn ? 'loses the turn' : e.move}
                 </span>
-                {e.damage > 0 && (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: e.actor === 'a' ? t.good : t.accent,
-                      marginLeft: 'auto',
-                      flexShrink: 0,
-                    }}
-                  >
-                    −{e.damage}
-                  </span>
-                )}
-                {e.heal > 0 && (
-                  <span
-                    style={{ fontSize: 11, color: t.good, marginLeft: 'auto', flexShrink: 0 }}
-                  >
-                    +{e.heal}
-                  </span>
-                )}
+
+                <Outcome event={e} />
               </div>
             )
           })
@@ -355,18 +427,35 @@ function BattleLog({ entries }: { entries: TurnEvent[] }) {
   )
 }
 
+/**
+ * What the turn did, always in the right-hand column so the numbers line up and
+ * can be read down. A miss or a guard still gets a word — a blank there reads
+ * as a rendering fault rather than a turn where nothing landed.
+ */
+function Outcome({ event }: { event: TurnEvent }) {
+  const base = { fontSize: 11, marginLeft: 'auto', flexShrink: 0 } as const
+
+  if (event.missed) return <span style={{ ...base, color: t.faint }}>miss</span>
+  if (event.damage > 0) return <span style={{ ...base, color: t.accent }}>−{event.damage}</span>
+  if (event.heal > 0) return <span style={{ ...base, color: t.good }}>+{event.heal}</span>
+  if (event.effect === 'guard') return <span style={{ ...base, color: t.dim }}>guard</span>
+  return <span style={base} />
+}
+
 function HealthBar({
   name,
   hp,
   max,
   meter,
   side,
+  onShowStats,
 }: {
   name: string
   hp: number
   max: number
   meter: number
   side: Side
+  onShowStats?: () => void
 }) {
   const pct = Math.max(0, Math.min(100, (hp / max) * 100))
   const low = pct <= 30
@@ -375,9 +464,20 @@ function HealthBar({
 
   return (
     <div style={{ display: 'grid', gap: 6, justifyItems: alignRight ? 'end' : 'start' }}>
-      <span
+      {/* The name is the way into this fighter's stats — they're off screen
+          during the fight by design. Dotted underline is the same affordance
+          the tooltips use. */}
+      <button
+        onClick={onShowStats}
+        disabled={!onShowStats}
         style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
           fontSize: 13,
+          textAlign: alignRight ? 'right' : 'left',
+          cursor: onShowStats ? 'pointer' : 'default',
+          borderBottom: onShowStats ? `1px dotted ${t.faint}` : 'none',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -385,7 +485,7 @@ function HealthBar({
         }}
       >
         {name}
-      </span>
+      </button>
       <div
         style={{
           width: '100%',

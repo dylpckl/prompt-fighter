@@ -10,6 +10,7 @@ import { label, panel, t } from '@/theme'
 
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<RosterEntry[] | null>(null)
+  const [total, setTotal] = useState(0)
   const [mineId, setMineId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -19,7 +20,9 @@ export default function LeaderboardPage() {
 
     fetchLeaderboard()
       .then((res) => {
-        if (!cancelled) setEntries(res.fighters)
+        if (cancelled) return
+        setEntries(res.fighters)
+        setTotal(res.total)
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -37,7 +40,10 @@ export default function LeaderboardPage() {
       <div>
         <h1 style={{ margin: 0, fontSize: 22, letterSpacing: '-0.01em' }}>Leaderboard</h1>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: t.dim, lineHeight: 1.5 }}>
-          The whole pool, ranked by wins. Everyone here is someone&rsquo;s ghost.
+          Ranked by wins. Everyone here is someone&rsquo;s ghost.
+          {entries && entries.length > 0 && total > entries.length
+            ? ` Showing the top ${entries.length} of ${total} who have fought.`
+            : ''}
         </p>
       </div>
 
@@ -63,7 +69,7 @@ export default function LeaderboardPage() {
             return (
               <Link
                 key={f.id}
-                href={`/fighter/${f.id}`}
+                href={`/fighter/${f.id}?from=leaderboard`}
                 style={{
                   ...panel,
                   borderColor: isMine ? t.accent : t.line,

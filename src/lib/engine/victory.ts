@@ -165,8 +165,17 @@ export function pressurePush(source: number): number {
  * A fraction can't do that. Resolve slows a meter — a lot, at the ceiling — but
  * it never stops one, so pushing harder always buys something and stacking
  * Resolve has honest diminishing returns instead of a cliff.
+ *
+ * Raised from 4 alongside the retune below. The two are the same adjustment seen
+ * from either end: 4 meant a merely *average* Resolve — the 5 a backfilled row
+ * carries, the 4-6 the generator hands anyone whose description isn't about
+ * being stubborn — already cut an incoming meter almost in half, which is most
+ * of why the mechanic read as dead. Resolve should be something you buy on
+ * purpose, not something you get for free by not spending elsewhere. At 5 a
+ * middling `wil` still slows a meter by a third and a maximal one still cuts it
+ * by nearly two thirds; see scripts/pressure-rates.ts for what that's worth.
  */
-export const WIL_SOFTENING = 4
+export const WIL_SOFTENING = 5
 
 export function wilResistance(wil: number): number {
   return WIL_SOFTENING / (WIL_SOFTENING + Math.max(0, wil - SPIRIT_MIN))
@@ -175,18 +184,31 @@ export function wilResistance(wil: number): number {
 /**
  * Points per beat per point of push, per track, before resistance and noise.
  *
- * A fight runs at most `MAX_ACTIONS_PER_SIDE` beats a side and most end well
- * short of that on health, so these are set so that only a genuinely committed
- * track — most of the budget in one place, against an opponent who did not buy
- * Resolve — caps inside a bout. Retuned over 20k fights against *lopsided*
- * spirit lines, which is the shape SYSTEM_PROMPT actually asks the model for;
- * the previous constants were validated against near-uniform spreads, which the
- * generator is explicitly told not to produce, and read far hotter in practice.
+ * A fight runs at most `MAX_ACTIONS_PER_SIDE` beats a side and — this is the
+ * part the previous numbers got wrong — most end on health well short of that,
+ * around eight or nine beats a side. These were sized against the *ceiling*
+ * rather than the median, so a meter had roughly half the runway in practice
+ * that it was tuned for, and the whole mechanic sat at the bottom of its bar
+ * looking decorative: a typical fight peaked somewhere near a quarter and only a
+ * near-maximal spirit line against near-zero Resolve ever finished one.
+ *
+ * Set now so a capped meter is about as common an ending as a knockout across
+ * the spreads the generator actually produces — measured, not estimated, over
+ * 20k fights a population in scripts/pressure-rates.ts. Crowd/hex/fate together
+ * land near 40% of fights against 40% knockouts on lopsided-to-moderate lines,
+ * and the run it replaced was 12%. The spread between the three tracks is
+ * cosmetic and deliberate: crowd should edge the other two so the most legible
+ * ending is also the most frequent one.
+ *
+ * These are a *ratio* to `PRESSURE_THRESHOLD` and to the median fight length,
+ * not absolute numbers. Anything that shortens fights — a damage-curve change, a
+ * lower HP floor — shortens the runway too and quietly turns pressure back down.
+ * Re-run the harness after touching either.
  */
 export const TRACK_RATE: Record<PressureTrack, number> = {
-  crowd: 1.5,
-  hex: 1.46,
-  fate: 1.42,
+  crowd: 1.95,
+  hex: 1.9,
+  fate: 1.84,
 }
 
 /** Per-beat noise, so two identical stat lines don't cap on the same beat every time. */
@@ -201,16 +223,29 @@ export const PRESSURE_JITTER_MAX = 1.2
  * maximal Resolve build from being arithmetically untouchable: on a hot night a
  * committed pusher can still get there.
  *
- * Squared, so the distribution is bunched down at the quiet end with a thin tail
- * up at the riot. That lets the *typical* night be cool enough to keep pressure
- * a minority read without the hot nights being so rare they never happen — the
- * two things a flat draw can't give you at once.
+ * The exponent is what controls the *shape* of stat-dependence, and it turned
+ * out to matter more than the rates. Squared, the draw bunched hard at the quiet
+ * end, so nearly every fight got close to the same cool night and the verdict
+ * for a given pair of spirit lines was very nearly deterministic — which meant
+ * capping a meter behaved like a threshold rather than a probability. That is
+ * what produced the cliff the retune was chasing: measured across random
+ * opponents, Presence 8 capped something 15% of the time and Presence 6 capped
+ * 2.8%, so anything short of all-in was effectively playing a different game.
+ *
+ * At 1.35 the draw still leans quiet — the median night is a little under 1.2,
+ * so a fighter who didn't buy in still doesn't cap anything — but there is
+ * enough spread left that one point of a spirit stat moves a *rate* instead of
+ * flipping a switch. Same measurement, same opponents, now 39% and 13%: a real
+ * gap that rewards commitment, on a slope rather than a step.
  */
 export const PRESSURE_MOOD_MIN = 0.7
 export const PRESSURE_MOOD_MAX = 2.0
+export const PRESSURE_MOOD_CURVE = 1.35
 
 export function pressureMood(roll: number): number {
-  return PRESSURE_MOOD_MIN + (PRESSURE_MOOD_MAX - PRESSURE_MOOD_MIN) * roll * roll
+  return (
+    PRESSURE_MOOD_MIN + (PRESSURE_MOOD_MAX - PRESSURE_MOOD_MIN) * Math.pow(roll, PRESSURE_MOOD_CURVE)
+  )
 }
 
 /** Salt for the jitter stream. The sim's own rng never sees a pressure draw. */

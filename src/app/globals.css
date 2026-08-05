@@ -5,9 +5,12 @@
 }
 
 html,
-body,
-#root {
-  height: 100%;
+body {
+  /* min-height, not height: a fixed 100% caps the body box at one viewport, so
+     the sticky header — whose containing block is the body — stops sticking the
+     moment you scroll past the first screen. Long pages like the leaderboard
+     then scroll straight over the nav. */
+  min-height: 100%;
   margin: 0;
 }
 
@@ -36,6 +39,34 @@ canvas {
   image-rendering: crisp-edges;
 }
 
+.page {
+  padding: 16px 18px 32px;
+}
+
+/* The arena is the only screen that would rather have the gutter as playfield —
+   everywhere else the margin is doing real work. Scoped by the wide shell it
+   already opts into, so if :has() isn't supported the arena just keeps the
+   roomier gutter rather than breaking. */
+.page:has(.shell--wide) {
+  padding-left: 8px;
+  padding-right: 8px;
+  /* No top gap on the arena: the battlefield then starts exactly where it
+     sticks, so it never slides at all before locking. */
+  padding-top: 0;
+}
+
+@media (min-width: 560px) {
+  .page {
+    padding: 24px 18px 48px;
+  }
+
+  .page:has(.shell--wide) {
+    padding-left: 18px;
+    padding-right: 18px;
+    padding-top: 0;
+  }
+}
+
 /* Screens opt into a width. Everything is the narrow column except the arena,
    which needs room for the battlefield and the two fighter panels. */
 .shell {
@@ -48,14 +79,42 @@ canvas {
   max-width: 1180px;
 }
 
-/* Phone: everything stacked, battlefield first. A stat panel needs ~200px
-   before the move names start blowing the grid out, so they only sit side by
-   side from 560px. Wide: panels flank the battlefield. */
+/* Phone: one column in DOM order — battlefield, log, actions, and the stat
+   panels last. The stats are reference material; the log and the buttons are
+   what you're actually doing, so they get the fold. A stat panel also needs
+   ~200px before long move names blow the grid out, hence the 560px pairing.
+   Wide: panels flank the battlefield and the log spans underneath. */
+/* Block, not grid, on a phone — deliberately. A sticky grid item can only
+   travel within its own grid area, and with auto rows that area is exactly the
+   item's height, so `position: sticky` on the battlefield would do nothing.
+   Block layout gives it the whole column to stick within. */
 .arena {
+  display: block;
+}
+
+.arena > * + * {
+  margin-top: 8px;
+}
+
+/* The fight — battlefield and log together — stays on screen while the stat
+   blocks scroll underneath. They stick as one element rather than two so the
+   log's offset doesn't have to be hard-coded to the battlefield's height.
+   The top padding lives here rather than on .page so the gap above the arena is
+   constant: the stage starts exactly where it sticks and never slides. */
+.arena__stage {
+  position: sticky;
+  /* 52px of nav plus its 1px bottom border. */
+  top: 53px;
+  z-index: 6;
+  background: #0b0b0c;
   display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr;
-  align-items: start;
+  gap: 8px;
+  padding-top: 12px;
+  padding-bottom: 8px;
+}
+
+.arena__stage + * {
+  margin-top: 0;
 }
 
 /* Grid children default to min-width:auto, which lets long move names push the
@@ -64,44 +123,162 @@ canvas {
   min-width: 0;
 }
 
-.arena__field {
-  order: -1;
-}
-
+/* Block layout — and therefore the sticky battlefield — holds all the way to
+   the desktop grid at 900px. Pairing the stat panels at 560px happens inside
+   .arena__stats-mobile so .arena itself can stay block: the moment it becomes a
+   grid, the battlefield stops sticking. */
 @media (min-width: 560px) {
-  .arena {
-    grid-template-columns: 1fr 1fr;
+  .arena > * + * {
+    margin-top: 12px;
   }
 
-  .arena__field {
-    grid-column: 1 / -1;
+  .arena__field + * {
+    margin-top: 0;
   }
 
-  .arena__stat--a {
-    grid-column: 1;
-  }
-
-  .arena__stat--b {
-    grid-column: 2;
-  }
 }
 
 @media (min-width: 900px) {
   .arena {
+    display: grid;
+    gap: 12px;
+    align-items: start;
     grid-template-columns: 264px minmax(0, 1fr) 264px;
+    /* Areas rather than order, so the DOM can stay in phone reading order. */
+    grid-template-areas:
+      'statA field statB'
+      'log   log   log'
+      'tail  tail  tail';
+  }
+
+  .arena > * + *,
+  .arena__stage + * {
+    margin-top: 0;
+  }
+
+  /* display:contents dissolves the stage so its two children take their own
+     grid areas — nothing to keep in view here, both panels are already on
+     screen. */
+  .arena__stage {
+    display: contents;
   }
 
   .arena__field {
-    grid-column: 2;
-    order: 0;
+    grid-area: field;
   }
-
   .arena__stat--a {
-    grid-column: 1;
+    grid-area: statA;
+  }
+  .arena__stat--b {
+    grid-area: statB;
+  }
+  .arena__log {
+    grid-area: log;
+  }
+  .arena__tail {
+    grid-area: tail;
+  }
+}
+
+/* Shorter on a phone so the log and buttons clear the fold. */
+.battlefield {
+  /* The ground band's whole job is giving the sprites something to stand on so
+     they don't float in the gradient. It held the move names once; those live
+     in the stat block now, so a strip does the job a band was doing. */
+  --ground: 12px;
+  position: relative;
+  height: 148px;
+  overflow: hidden;
+}
+
+.battlefield__ground {
+  height: var(--ground);
+}
+
+.battlefield__actors {
+  bottom: var(--ground);
+}
+
+/* Fixed, not max-height: the log must not resize as lines land, or the buttons
+   below it walk down the screen mid-fight. */
+.arena__log-scroll {
+  height: 150px;
+}
+
+/* Pinned, not sticky: sticky only engages once there's something to scroll, so
+   on a screen that already fits the bar just sat wherever the content ended. */
+.arena__tail {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: #0b0b0c;
+  border-top: 1px solid #2a2a31;
+  padding: 10px 8px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.arena__tail-inner {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  display: grid;
+  gap: 10px;
+}
+
+/* Fight again / build someone new share a row — one button's height back. */
+.arena__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Half-width buttons can't carry the full-size type without wrapping. */
+.arena__actions button {
+  font-size: 12px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* Reserve the pinned bar's space so the log never hides underneath it. */
+.arena {
+  padding-bottom: 148px;
+}
+
+/* Stats are reference material — on a phone they live behind a tap on the
+   fighter's name instead of taking a screen of their own. */
+.arena__stat {
+  display: none;
+}
+
+@media (min-width: 560px) {
+  .battlefield {
+    --ground: 20px;
+    height: 176px;
   }
 
-  .arena__stat--b {
-    grid-column: 3;
+  .arena__log-scroll {
+    height: 200px;
+  }
+}
+
+@media (min-width: 900px) {
+  .arena__stat {
+    display: block;
+  }
+
+  .arena {
+    padding-bottom: 0;
+  }
+
+  .arena__tail {
+    position: static;
+    border-top: none;
+    padding: 0;
+  }
+
+  .arena__actions {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -232,6 +409,117 @@ canvas {
   }
   100% {
     transform: translateX(430%);
+  }
+}
+
+/* --- Versus preview ------------------------------------------------------ */
+
+.vs__corner--a {
+  animation: flyInLeft 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.vs__corner--b {
+  animation: flyInRight 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Fires as the two land, not on mount. `overflow: hidden` is load-bearing: the
+   VS slams in from 2× and a transform still counts toward document scroll
+   width, so without clipping the page gains a sideways scrollbar for a quarter
+   of a second. */
+.vs__panel {
+  animation: impactShake 360ms ease-out 560ms both;
+  overflow: hidden;
+}
+
+/* The VS deliberately has no entrance of its own.
+   A scale-in was written and pulled: in testing the animation reported
+   `playState: running` with `currentTime` pinned at 0, leaving the mark parked
+   on its opening frame at 2× indefinitely — while the corner fly-ins beside it
+   advanced normally. Cause unexplained, so it isn't shipping: a VS stuck at
+   double size is a worse outcome than one that simply appears. The fly-in and
+   the panel shake already carry the moment. */
+
+.vs__countdown {
+  height: 2px;
+  background: #1c1c21;
+  overflow: hidden;
+}
+
+.vs__countdown > span {
+  display: block;
+  height: 100%;
+  background: #d9503c;
+  transform-origin: left center;
+  animation-name: countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  /* duration comes from the component, which owns the timer */
+}
+
+@keyframes flyInLeft {
+  0% {
+    transform: translateX(-140%);
+    opacity: 0;
+  }
+  70% {
+    transform: translateX(5%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes flyInRight {
+  0% {
+    transform: translateX(140%);
+    opacity: 0;
+  }
+  70% {
+    transform: translateX(-5%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes impactShake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-3px, 2px);
+  }
+  40% {
+    transform: translate(3px, -2px);
+  }
+  60% {
+    transform: translate(-2px, 1px);
+  }
+  80% {
+    transform: translate(2px, -1px);
+  }
+}
+
+@keyframes countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Everything above is decoration and every element's resting state is its end
+   state, so switching the animations off leaves the layout correct rather than
+   stuck mid-flight. The countdown stays: it's information, not ornament. */
+@media (prefers-reduced-motion: reduce) {
+  .vs__corner--a,
+  .vs__corner--b,
+  .vs__panel {
+    animation: none;
   }
 }
 

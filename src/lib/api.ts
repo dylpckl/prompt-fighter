@@ -60,7 +60,7 @@ export function fetchMyFighters(sessionId: string): Promise<{ fighters: RosterEn
 }
 
 /** Ranked across the whole pool, not just this session. */
-export function fetchLeaderboard(): Promise<{ fighters: RosterEntry[] }> {
+export function fetchLeaderboard(): Promise<{ fighters: RosterEntry[]; total: number }> {
   return request('/api/leaderboard')
 }
 

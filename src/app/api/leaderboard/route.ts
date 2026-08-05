@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/server/supabase'
 
 export const runtime = 'nodejs'
 
-const TOP_N = 25
+const TOP_N = 50
 
 /**
  * The whole pool, ranked. Public by nature — these are the same fighters
@@ -28,7 +28,14 @@ export async function GET() {
 
     if (error) throw error
 
-    return NextResponse.json({ fighters: data ?? [] })
+    // How many ranked fighters exist, so the page can say what it isn't
+    // showing rather than looking like the whole pool.
+    const { count } = await supabaseAdmin()
+      .from('fighters')
+      .select('id', { count: 'exact', head: true })
+      .or('wins.gt.0,losses.gt.0')
+
+    return NextResponse.json({ fighters: data ?? [], total: count ?? (data?.length ?? 0) })
   } catch (err) {
     console.error('leaderboard failed:', err)
     return NextResponse.json({ error: 'Something broke.' }, { status: 500 })

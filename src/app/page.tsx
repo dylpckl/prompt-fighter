@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { Fighter, FighterPrompts } from '@/lib/engine/types'
 import { createFighter, fetchFighter, requestFight, type FightResult } from '@/lib/api'
 import { getSessionId, getStoredFighterId, setStoredFighterId } from '@/lib/session'
@@ -18,8 +18,24 @@ function message(err: unknown): string {
   return err instanceof Error ? err.message : 'Something went wrong.'
 }
 
+/** useSearchParams needs a boundary or this route can't be prerendered. */
 export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="shell">
+          <p style={{ ...label, textAlign: 'center' }}>Loading…</p>
+        </div>
+      }
+    >
+      <Game />
+    </Suspense>
+  )
+}
+
+function Game() {
   const router = useRouter()
+  const search = useSearchParams()
   const [screen, setScreen] = useState<Screen>('loading')
   const [fighter, setFighter] = useState<Fighter | null>(null)
   const [result, setResult] = useState<FightResult | null>(null)
@@ -106,6 +122,20 @@ export default function Page() {
       setBusy(false)
     }
   }, [fighter])
+
+  // Arriving with ?fight=1 means the visitor already looked at this fighter on
+  // its own page and pressed the button — showing them the reveal screen would
+  // be the same card again with one more click on it.
+  const autoFought = useRef(false)
+  useEffect(() => {
+    if (autoFought.current) return
+    if (search?.get('fight') !== '1') return
+    if (!fighter || busy) return
+
+    autoFought.current = true
+    router.replace('/')
+    void handleFight()
+  }, [search, fighter, busy, router, handleFight])
 
   const handleRebuild = useCallback(() => {
     setStoredFighterId(null)

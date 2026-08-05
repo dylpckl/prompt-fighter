@@ -3,7 +3,7 @@ import './globals.css'
 import { Nav } from '@/components/Nav'
 
 export const metadata: Metadata = {
-  title: 'prompt fight',
+  title: 'prompt fighter',
   description: 'Four prompts, one fighter. Then find out whose held up.',
 }
 
@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Nav />
         {/* Screens pick their own width via .shell / .shell--wide — the arena
             needs more room than the rest. */}
-        <main style={{ padding: '24px 18px 48px' }}>{children}</main>
+        <main className="page">{children}</main>
       </body>
     </html>
   )
