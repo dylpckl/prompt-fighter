@@ -1,4 +1,5 @@
 import { chance, makeRng, range } from './rng'
+import { crowdSupport } from './favorites'
 import { hesitateText, narrate, pressureText, selfHarmText, stunnedText } from './narrate'
 import {
   PRESSURE_JITTER_MAX,
@@ -29,6 +30,11 @@ interface SideState {
   fighter: FighterCore
   hp: number
   maxHp: number
+  /**
+   * Crowd-meter multiplier from this fighter's favorites, resolved once at the
+   * top of the fight. Exactly 1 for a fighter nobody has favorited.
+   */
+  support: number
   meter: number
   guarded: boolean
   stunned: boolean
@@ -55,6 +61,11 @@ function initSide(fighter: FighterCore): SideState {
     fighter,
     hp: maxHp,
     maxHp,
+    // Read once, before the first beat. A favorite landing mid-bout must not
+    // change a fight already in progress — and in bracket mode the whole fight
+    // is simulated up front and replayed from the stored log, so "mid-bout"
+    // there is a viewer's clock, not the sim's.
+    support: crowdSupport(fighter.favorites),
     meter: 0,
     guarded: false,
     stunned: false,
@@ -121,6 +132,11 @@ function readMeters(s: SideState): Meters {
  * fighter with nothing to say never gets going and a stubborn one is very hard
  * — but never impossible — to talk out of the ring.
  *
+ * `support` is the one asymmetry: favorites are people in the room, so they
+ * multiply the crowd track and leave hex and fate alone. It multiplies `push`,
+ * which is zero for a fighter on the Presence floor — so a following can make a
+ * talker louder and can never give a quiet fighter a voice.
+ *
  * The jitter is drawn from a stream of its own, unconditionally and in a fixed
  * order, so no branch here can move the sim's rng by a single call.
  */
@@ -135,8 +151,9 @@ function accruePressure(
 
   for (const track of PRESSURE_TRACKS) {
     const push = pressurePush(spiritOf(me, TRACK_SOURCE[track]))
+    const support = track === 'crowd' ? me.support : 1
     const wobble = range(jitter, PRESSURE_JITTER_MIN, PRESSURE_JITTER_MAX)
-    me.pressure[track] += push * TRACK_RATE[track] * resistance * wobble * mood
+    me.pressure[track] += push * TRACK_RATE[track] * resistance * wobble * mood * support
     if (!capped && me.pressure[track] >= PRESSURE_THRESHOLD) capped = track
   }
 

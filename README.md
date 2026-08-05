@@ -18,6 +18,10 @@ the app generates a low-resolution sprite for it, and it fights someone else's.
 Or bring people: a room is a four-character code, everyone enters a fighter, and
 the bracket plays out one match at a time on everyone's screen at once.
 
+You also get one favorite, spendable on anyone's fighter but your own. It follows
+you around the board rather than accumulating — and being backed is worth
+something in the ring, because a fighter's favorites feed the crowd meter.
+
 ## Why it's shaped this way
 
 **The stat budget is the anti-cheat.** Prompts become stats that must sum to a
@@ -107,6 +111,34 @@ one `0003` already names: derive a deterministic spirit spread from those
 fighters' stored prompts, rather than nudge these constants back down and switch
 the mechanic off again for everyone.
 
+**A favorite is one vote, and it only ever makes a crowd louder.** Every player
+gets exactly one favorite, and a fighter's count multiplies the `crowd` pressure
+track — the meter already driven by Presence. Nothing else: not hex, not fate,
+and nothing physical. Supporters are people in the room, so they push the room's
+meter; nobody's fan club makes you better at curses, at paperwork, or at
+punching, and the body budget has been frozen since `0001` for reasons
+popularity is not a good enough answer to.
+
+Two properties keep that from being a popularity contest with a win button
+attached. It multiplies the *push*, and `pressurePush` returns zero for a fighter
+on the Presence floor — so any multiple of it is zero, and a following can make a
+talker louder while never giving a quiet fighter a voice. And it saturates rather
+than accumulating: `1 + 0.5 · n/(n+12)`, so one favorite is worth about 4%, twelve
+about 25%, and no number ever reaches 50%. Same shape as `wilResistance` and for
+the same reason — a curve with a ceiling has no cliff to farm toward.
+
+The cap on farming is two identities at once. `session_id` is a UUID the browser
+invents, so on its own it caps nothing; `voter_key` is the salted hash of the
+forwarded client address, the same trick `rooms.host_key` uses. A vote matches on
+*either*, and `set_favorite` releases whatever matched before inserting — so
+clearing site data moves your vote rather than earning you a second one, and
+doesn't lock you out either. It is still best effort: behind a proxy that strips
+the header it degrades to the session id. That is priced in rather than patched
+over, which is exactly what the asymptote is for — a farmed favorite buys a
+sliver of one meter, not a fight. Favoriting your own fighter is refused
+outright, because the alternative is everyone rationally favoriting themselves
+and the number carrying no information at all.
+
 **New randomness gets its own stream.** This is the rule that makes any of the
 above safe to add. The pressure jitter draws from `makeRng(seed ^
 PRESSURE_SALT)` and the victory flavour rolls from streams of their own, never
@@ -174,16 +206,19 @@ src/app/                    layout, the client pages, and the API routes
 src/app/api/create-fighter/ prompts → schema-enforced generation → row
 src/app/api/fight/          pick ghost → simulate → record → turn log
 src/app/api/fighter/[id]/   returning-player lookup
+src/app/api/favorite/       the one vote a player gets: read, move, withdraw
 src/app/api/room/           create, join, start, and the polling GET
 src/app/api/room/_advance   claim-and-simulate; drives the bracket forward
 src/app/room/[code]/        the shareable room URL
 src/lib/engine/             types, RNG, sim, narration, victory, validation, prompt
 src/lib/engine/bracket.ts   room codes, seeding, pairings, timing constants
+src/lib/engine/favorites.ts the crowd-support curve and its ceiling
 src/lib/server/             service-role client, Anthropic call
+src/lib/server/clientKey.ts hashed caller identity, shared by rooms and favorites
 src/components/             sprite canvas, stat block, fight stage
 src/screens/                builder, reveal, arena, lobby, bracket, broadcast
-supabase/migrations/        schema, RLS, grants, spirit backfill, bracket tables
-tests/                      sim determinism/termination, victory, bracket, normalizers
+supabase/migrations/        schema, RLS, grants, spirit backfill, brackets, favorites
+tests/                      sim determinism/termination, victory, bracket, favorites, normalizers
 ```
 
 ## Setup
@@ -209,10 +244,12 @@ supabase link --project-ref <ref> && supabase db push
 # in filename order — 0002 is what makes the service role actually work
 ```
 
-All four matter, in order. `0001` creates the fighters table with RLS on and no
+All five matter, in order. `0001` creates the fighters table with RLS on and no
 policies; `0002` grants the service role the privileges it needs; `0003`
 backfills the spirit stats onto existing fighters; `0004` adds the bracket
-tables (`rooms`, `room_entrants`, `matches`), again with RLS on and no policies.
+tables (`rooms`, `room_entrants`, `matches`), again with RLS on and no policies;
+`0005` adds the `favorites` table plus a denormalized count on `fighters`, and
+the two functions that keep the two in step.
 
 `0002` is the one worth understanding. The service role bypasses RLS but *not*
 table privileges, and Supabase's default privileges only fire for objects
@@ -224,7 +261,10 @@ to `service_role` in the same migration that creates it, and every new function
 gets a `grant execute` plus a `revoke execute ... from public`.** `0004` grants
 all three of its tables directly and adds no functions at all — the conditional
 UPDATE that claims a match does the whole job, so there is nothing to revoke.
-`0003` is a data-only backfill and adds neither.
+`0003` is a data-only backfill and adds neither. `0005` does both: a `grant` on
+`public.favorites`, and a `grant execute` plus `revoke execute ... from public`
+on `set_favorite` and `clear_favorite` — which matters more than usual there,
+because those two functions move a number the sim reads.
 
 Then fill the ghost pool and run it:
 
@@ -263,6 +303,8 @@ SEED_BASE_URL=https://your-app.vercel.app npm run seed
   fighter — that's the tradeoff for having no accounts.
 - Rate limit is 10 fighters per session per hour. One model call per fighter
   created, none per fight.
+- One favorite per player, and it can't be spent on your own fighter. Choosing a
+  new one moves it rather than adding to it.
 - Unsafe prompts are caught by a `safe` flag on the generation call and bounce
   before anything is written, so they never enter the pool.
 - `create-fighter` sets `maxDuration = 60`. Generation is the slowest thing in

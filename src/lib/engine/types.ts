@@ -70,12 +70,20 @@ export interface FighterPrompts {
   flaw: string
 }
 
-/** Everything the sim needs — no id, no record. */
+/** Everything the sim needs — no id, no win/loss record. */
 export interface FighterCore {
   name: string
   stats: Stats
   moves: [Move, Move]
   flaw: Flaw
+  /**
+   * How many players have this as their one favorite. The sim reads it for the
+   * crowd meter and nothing else — see lib/engine/favorites.ts.
+   *
+   * Optional, and absent means zero: a fixture that predates favorites, or a row
+   * read before migration 0005, must simulate exactly as it always did.
+   */
+  favorites?: number
 }
 
 export interface Fighter extends FighterCore {
@@ -89,6 +97,13 @@ export interface Fighter extends FighterCore {
   sprite: Sprite
   wins: number
   losses: number
+  /**
+   * Required here, optional on `FighterCore`. A stored fighter always has a
+   * count — `hydrateFighter` fills it in even for rows that predate the column —
+   * so the UI never has to guard, while a hand-built sim fixture still doesn't
+   * have to mention favorites at all.
+   */
+  favorites: number
 }
 
 export type Side = 'a' | 'b'

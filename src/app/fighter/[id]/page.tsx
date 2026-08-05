@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 
 import { Sprite } from '@/components/Sprite'
+import { FavoriteButton } from '@/components/FavoriteButton'
 import { FighterPanel } from '@/components/FighterPanel'
 import { fetchFighter, fetchMyFighters } from '@/lib/api'
 import { getSessionId, setStoredFighterId } from '@/lib/session'
@@ -153,6 +154,8 @@ function FighterDetail() {
         </span>
       </div>
 
+      <FavoriteButton fighterId={fighter.id} count={fighter.favorites} />
+
       {isMine && (
         // Straight into a fight. Routing to the game screen first only showed
         // this same card again with a Find opponent button on it — a click that
@@ -167,7 +170,6 @@ function FighterDetail() {
           Find opponent
         </button>
       )}
-
 
       <button onClick={() => router.push(backHref)} style={button('ghost')}>
         {backLabel}

@@ -11,7 +11,7 @@ import type { Fighter, FighterCore } from '@/lib/engine/types'
 export const runtime = 'nodejs'
 
 function core(f: Fighter): FighterCore {
-  return { name: f.name, stats: f.stats, moves: f.moves, flaw: f.flaw }
+  return { name: f.name, stats: f.stats, moves: f.moves, flaw: f.flaw, favorites: f.favorites }
 }
 
 export async function POST(req: Request) {

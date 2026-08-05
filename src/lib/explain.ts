@@ -11,7 +11,7 @@ export const STAT_HELP: Record<keyof Stats, string> = {
   atk: 'Scales every hit you land — damage is roughly power × (attack ÷ (their defense + 10)) × 7.',
   def: 'Blunts incoming damage. It sits in a divisor, so the first few points help more than the last few.',
   spd: 'Decides who acts first, and nothing else. It does not give you more turns or charge your meter faster.',
-  cha: 'Fills the crowd meter every beat. Cap it and you win on presence — politics, a roast, a wedding — whatever the health bars say.',
+  cha: 'Fills the crowd meter every beat, faster the more favorites you have. Cap it and you win on presence — politics, a roast, a wedding — whatever the health bars say.',
   wil: 'Resists all three pressure meters at once, with diminishing returns. It never makes you immune, it only buys time.',
   arc: 'Fills the hex meter every beat. Cap it and the fight ends in a curse, a banishment, or something nobody can explain.',
   luk: 'Fills the fate meter every beat. Cap it and you win on circumstance — a lapsed licence, a market crash, the promoter being your parent.',
@@ -33,6 +33,9 @@ export const FLAW_HELP: Record<FlawEffect, string> = {
   wild: 'Every move you throw is 20% more likely to miss.',
   overheat: 'Every signature move costs you 8 HP. It can finish you.',
 }
+
+export const FAVORITE_HELP =
+  'Every player has one favorite. A fighter’s favorites multiply their crowd meter and nothing else, with diminishing returns — one is worth about 4%, twelve about 25%, and it never passes 50%. It multiplies Presence, so it is worth nothing at all to a fighter who never bought any.'
 
 export const METER_HELP =
   'Signature meter. Three actions charge it and the fourth fires your signature move. Lost turns — a stun, a slow start — do not charge it.'

@@ -10,7 +10,7 @@
  * fighter's, so they stay server-side too.
  */
 export const PUBLIC_FIGHTER_COLUMNS =
-  'id, name, title, stats, moves, flaw, sprite, wins, losses, created_at'
+  'id, name, title, stats, moves, flaw, sprite, wins, losses, favorites, created_at'
 
 const PRIVATE_KEYS = ['session_id', 'prompts'] as const
 

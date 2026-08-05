@@ -14,6 +14,8 @@ export interface RosterEntry {
   sprite: Sprite
   wins: number
   losses: number
+  /** How many players hold this as their one favorite. */
+  favorites: number
   /** Present on the roster, absent on the leaderboard — neither view shows it. */
   created_at?: string
 }
@@ -69,6 +71,36 @@ export async function fetchFighter(id: string): Promise<Fighter | null> {
   } catch {
     return null
   }
+}
+
+// --- Favorites -------------------------------------------------------------
+//
+// One per player, and it feeds the crowd meter — see lib/engine/favorites.ts.
+// The server owns the "one" part; nothing here enforces it, because a client
+// that decided not to would just get the same single row moved around anyway.
+
+/** Which fighter this player currently backs, or null. */
+export function fetchMyFavorite(sessionId: string): Promise<{ fighterId: string | null }> {
+  return request(`/api/favorite?sessionId=${encodeURIComponent(sessionId)}`)
+}
+
+/** Moves the player's one favorite. Rejects their own fighters. */
+export function setFavorite(
+  sessionId: string,
+  fighterId: string,
+): Promise<{ fighterId: string; favorites: number }> {
+  return request('/api/favorite', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, fighterId }),
+  })
+}
+
+/** Takes it back. A no-op if they weren't backing anyone. */
+export function clearFavorite(sessionId: string): Promise<{ cleared: boolean }> {
+  return request('/api/favorite', {
+    method: 'DELETE',
+    body: JSON.stringify({ sessionId }),
+  })
 }
 
 // --- Bracket mode ----------------------------------------------------------
