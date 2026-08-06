@@ -15,7 +15,10 @@ import {
   STAT_MIN,
   STAT_TOTAL,
 } from './types'
+import { normalizeRules } from './rules'
 import type { Fighter, FighterPrompts, Flaw, Move, Sprite, Stats } from './types'
+
+export { normalizeRules }
 
 export class ValidationError extends Error {}
 
@@ -158,7 +161,17 @@ const PRIVATE_FIGHTER_KEYS = ['session_id', 'prompts'] as const
 export function hydrateFighter(row: unknown): Fighter {
   const raw = { ...((row ?? {}) as Fighter) }
   for (const key of PRIVATE_FIGHTER_KEYS) delete (raw as Record<string, unknown>)[key]
-  return { ...raw, stats: normalizeStats(raw.stats), favorites: normalizeFavorites(raw.favorites) }
+  return {
+    ...raw,
+    stats: normalizeStats(raw.stats),
+    favorites: normalizeFavorites(raw.favorites),
+    // Normalized on the way out as well as in, for the same reason stats are:
+    // a row written before migration 0006 has no `rules` at all, and the sim
+    // must not have to guard. `normalizeRules` turns absent into `[]` and drops
+    // anything it can't execute, so what the client draws and what the sim ran
+    // are always the same list.
+    rules: normalizeRules(raw.rules),
+  }
 }
 
 /**

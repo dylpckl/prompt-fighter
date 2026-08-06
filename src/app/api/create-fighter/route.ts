@@ -8,6 +8,7 @@ import {
   hydrateFighter,
   normalizeFlaw,
   normalizeMove,
+  normalizeRules,
   normalizeSprite,
   normalizeStats,
   parsePrompts,
@@ -60,6 +61,10 @@ export async function POST(req: Request) {
       stats: normalizeStats(generated.stats),
       moves: [normalizeMove(generated.basic, 'basic'), normalizeMove(generated.special, 'special')],
       flaw: normalizeFlaw(generated.flaw),
+      // Unknown triggers and actions are dropped rather than corrected: there is
+      // no sensible default for "what did you mean", and a rule quietly rewritten
+      // into something legal would be a lie about the fighter the player built.
+      rules: normalizeRules(generated.rules),
       sprite: normalizeSprite(generated.palette, generated.sprite),
     }
 

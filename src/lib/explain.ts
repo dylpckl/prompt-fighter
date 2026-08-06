@@ -37,5 +37,8 @@ export const FLAW_HELP: Record<FlawEffect, string> = {
 export const FAVORITE_HELP =
   'Every player has one favorite. A fighter’s favorites multiply their crowd meter and nothing else, with diminishing returns — one is worth about 4%, twelve about 25%, and it never passes 50%. It multiplies Presence, so it is worth nothing at all to a fighter who never bought any.'
 
+export const RULES_HELP =
+  'Whatever the player asked for that the numbers above could not express. Each rule is one “when this happens, that happens” sentence, and unlike stats there is no budget on them — a fighter described as invulnerable is invulnerable. The engine guarantees exactly one thing: the fight ends.'
+
 export const METER_HELP =
   'Signature meter. Three actions charge it and the fourth fires your signature move. Lost turns — a stun, a slow start — do not charge it.'

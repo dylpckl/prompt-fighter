@@ -9,8 +9,15 @@
  * `prompts` are the player's own writing and nothing in the UI renders another
  * fighter's, so they stay server-side too.
  */
+/**
+ * `rules` is public on purpose, unlike `prompts`. A fighter's rules are the
+ * fighter — half of what someone built is in there, the sheet is unreadable
+ * without them, and a fight where the other side's behaviour is hidden is a
+ * fight nobody can follow. They also contain none of the player's own writing:
+ * the generator names and describes each rule itself.
+ */
 export const PUBLIC_FIGHTER_COLUMNS =
-  'id, name, title, stats, moves, flaw, sprite, wins, losses, favorites, created_at'
+  'id, name, title, stats, moves, flaw, rules, sprite, wins, losses, favorites, created_at'
 
 const PRIVATE_KEYS = ['session_id', 'prompts'] as const
 

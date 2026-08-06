@@ -1,6 +1,8 @@
 import { SPIRIT_MAX, STAT_MAX } from '@/lib/engine/types'
 import type { Fighter, Stats } from '@/lib/engine/types'
-import { FLAW_HELP, MOVE_HELP, STAT_HELP } from '@/lib/explain'
+import { describeRule } from '@/lib/engine/rules'
+import type { Rule } from '@/lib/engine/rules'
+import { FLAW_HELP, MOVE_HELP, RULES_HELP, STAT_HELP } from '@/lib/explain'
 import { Hint } from '@/components/Hint'
 import { label, t } from '@/theme'
 
@@ -59,6 +61,46 @@ export function StatBlock({ fighter }: { fighter: Fighter }) {
           </span>
         </div>
       </div>
+
+      {fighter.rules?.length > 0 && (
+        <div style={{ display: 'grid', gap: 8, marginTop: 4 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              borderTop: `1px solid ${t.line}`,
+              paddingTop: 8,
+            }}
+          >
+            <span style={{ ...label, fontSize: 10, color: t.faint }}>
+              <Hint text={RULES_HELP}>Rules</Hint>
+            </span>
+          </div>
+
+          {fighter.rules.map((rule, i) => (
+            <RuleRow key={`${rule.name}-${i}`} rule={rule} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Stacked rather than the label-and-value row the stats use. A rule's
+ * description is a whole sentence and its name is up to 28 characters, so a
+ * two-column layout either wraps into a ragged mess at 375px or — worse, since
+ * these sit in a grid — pushes its track wider than the viewport. `minWidth: 0`
+ * and `overflowWrap` are the belt and braces for a name with no spaces in it.
+ */
+function RuleRow({ rule }: { rule: Rule }) {
+  return (
+    <div style={{ display: 'grid', gap: 2, minWidth: 0 }}>
+      <span style={{ fontSize: 13, color: t.accent, overflowWrap: 'anywhere' }}>{rule.name}</span>
+      <span style={{ fontSize: 11, color: t.dim, lineHeight: 1.45, overflowWrap: 'anywhere' }}>
+        {describeRule(rule)}
+      </span>
     </div>
   )
 }

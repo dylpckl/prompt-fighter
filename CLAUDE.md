@@ -61,6 +61,43 @@ because a JSON schema can express an enum but not "these four numbers sum to
 30". A weaker model returning an illegal spread is fine — it gets corrected.
 Don't move that logic into the prompt.
 
+## Rules are deliberately *not* budgeted
+
+`engine/rules.ts` is the exception to everything above, and it is on purpose.
+A fighter carries up to six `when → then` sentences drawn from a fixed
+vocabulary, and there is no point budget on them at all. If a player writes
+"invulnerable" they get `when_i_am_hit → immune` — a real, absolute, unfair
+immunity. Do not add a cost, a cap, or a balance pass. Being told no is the
+failure mode this system exists to remove.
+
+The stat budgets stay because a stat line is permanent and moves a W/L record.
+Rules are loose because the whole point is that the player gets the fighter they
+described. Yes, this means someone can build a fighter that always wins, and
+yes, they will climb the leaderboard. That is a known and accepted consequence,
+not a bug to fix.
+
+**The one invariant is that a fight ends.** Everything in `rules.ts` is written
+to hold that: rules fire only from sim hooks so nothing cascades, no action
+touches the round counter, and every action is clamped and total. `MAX_ACTIONS_
+PER_SIDE` in `sim.ts` is the absolute ceiling and nothing a rule does can reach
+it. Two immortal fighters go the distance and win on the decision.
+`tests/rules.test.ts` asserts this against every trigger × action pair and
+against randomly generated six-rule fighters; if you add a trigger or an action,
+that test is the one that has to keep passing.
+
+Two mechanical traps worth knowing:
+
+- **Rules draw from their own RNG stream** (`RULES_SALT`), same reasoning as
+  pressure's. A fighter with rules must not shift a single physical roll for the
+  fighter without them — that's what keeps every fight already on record
+  reproducible, and there's a test pinning it.
+- **`TurnEvent.rules` is what the UI renders, not `TurnEvent.text`.** Nothing
+  renders `text` today. If you add narration and can't see it, that's why.
+
+Rules make generation meaningfully harder than picking from an enum — the model
+has to compose, not classify. This raises the floor on model tier; don't assume
+a cheaper one still produces coherent rules without looking at the output.
+
 ## Model and cost
 
 Generation is one Opus 5 call per fighter, `effort: 'low'`, ~$0.011 warm /

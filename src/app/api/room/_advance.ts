@@ -55,7 +55,14 @@ export interface MatchRow {
  * lands on the next match rather than rewriting one already playing.
  */
 function core(f: Fighter): FighterCore {
-  return { name: f.name, stats: f.stats, moves: f.moves, flaw: f.flaw, favorites: f.favorites }
+  return {
+    name: f.name,
+    stats: f.stats,
+    moves: f.moves,
+    flaw: f.flaw,
+    favorites: f.favorites,
+    rules: f.rules,
+  }
 }
 
 /**
