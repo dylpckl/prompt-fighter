@@ -34,15 +34,20 @@ function moveSchema(powers: number[]) {
   }
 }
 
+/**
+ * Descriptions here are terse on purpose: the schema is sent on every
+ * generation and the system prompt already explains the vocabulary at length.
+ * Anything said in both places is paid for twice, forever.
+ */
 const ruleSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['name', 'text', 'when', 'then', 'chance', 'times'],
   properties: {
-    name: { type: 'string', description: `Name of the rule, ${RULE_NAME_MAX} characters or fewer.` },
+    name: { type: 'string', description: `${RULE_NAME_MAX} characters or fewer.` },
     text: {
       type: 'string',
-      description: `What the commentary says when it fires, ${RULE_TEXT_MAX} characters or fewer.`,
+      description: `Commentary line when it fires, ${RULE_TEXT_MAX} characters or fewer.`,
     },
     when: {
       type: 'object',
@@ -50,11 +55,8 @@ const ruleSchema = {
       required: ['on', 'value'],
       properties: {
         on: { type: 'string', enum: [...RULE_TRIGGERS] },
-        value: {
-          type: 'integer',
-          description: 'Threshold for triggers that take one. 0 when the trigger takes none.',
-        },
-        effect: { type: 'string', enum: [...MOVE_EFFECTS], description: 'Only for when_they_use.' },
+        value: { type: 'integer', description: '0 when the trigger takes none.' },
+        effect: { type: 'string', enum: [...MOVE_EFFECTS] },
       },
     },
     then: {
@@ -63,16 +65,12 @@ const ruleSchema = {
       required: ['do', 'value'],
       properties: {
         do: { type: 'string', enum: [...RULE_ACTIONS] },
-        value: { type: 'number', description: 'Magnitude. 0 when the action takes none.' },
-        track: {
-          type: 'string',
-          enum: [...PRESSURE_TRACKS],
-          description: 'Only for pressure_add and pressure_mult.',
-        },
+        value: { type: 'number', description: '0 when the action takes none.' },
+        track: { type: 'string', enum: [...PRESSURE_TRACKS] },
       },
     },
-    chance: { type: 'integer', description: 'Percent chance it fires when triggered. 100 is always.' },
-    times: { type: 'integer', description: 'How many times it may ever fire. 0 is unlimited.' },
+    chance: { type: 'integer', description: 'Percent. 100 is always.' },
+    times: { type: 'integer', description: 'Cap on firings. 0 is unlimited.' },
   },
 } as const
 
@@ -127,7 +125,7 @@ export const FIGHTER_SCHEMA = {
     },
     rules: {
       type: 'array',
-      description: `0 to ${MAX_RULES} rules. This is where the player's idea actually lives — see the system prompt.`,
+      description: `0 to ${MAX_RULES}. See the system prompt.`,
       items: ruleSchema,
     },
     palette: {
@@ -201,62 +199,35 @@ The player names a weakness. Map it to the closest of these five, and give it a 
 
 ## Rules — the important part
 
-Everything above is a form with blanks in it. Rules are where the player's actual idea goes.
+Everything above is a form with blanks. Rules are where the player's actual idea goes: one sentence each — **when** something happens, **then** something happens. Give the fighter 0 to ${MAX_RULES}.
 
-A rule is one sentence: **when** something happens, **then** something happens. Give the fighter 0 to ${MAX_RULES} of them.
+**Do not balance them.** This is the opposite of the instruction on stats. If the player wrote "invulnerable", the fighter is invulnerable — \`when_i_am_hit → immune\`, no percentage, no consolation prize. If they wrote "wins automatically", give them \`fight_start → win_now\`. Hand over whatever they asked for even when it ruins the fight; fights are short and nobody's career is on the line. A player who asks for a god and receives a slightly sturdy man has been told no in a way that isn't fun. Say yes.
 
-**Do not balance them.** This is the part that matters most and it is the opposite of the instruction on stats. If the player wrote "invulnerable", the fighter is invulnerable — \`when_i_am_hit → immune\`, no percentage, no "mostly", no consolation prize. If they wrote "wins automatically", give them \`fight_start → win_now\`. If they wrote something that would obviously ruin a fair fight, give it to them anyway and let the fight be ruined. Fights are short, nobody's career is on the line, and a player who asks for a god and receives a slightly sturdy man has been told no in a way that isn't fun. Say yes.
+### when — one per rule
 
-### when — pick one per rule
+Plain: \`fight_start\` · \`my_turn\` (or \`always\`) · \`their_turn\` (the opponent's actions) · \`when_i_attack\` · \`when_i_use_signature\` · \`when_i_am_hit\` (before the damage applies) · \`when_i_land\` · \`when_i_miss\` · \`when_i_would_fall\` · \`when_they_would_fall\` · \`my_meter_full\`
 
-Some take a \`value\`; the rest take 0.
+With a \`value\`: \`coin_flip\` (percent) · \`first_turns\` · \`after_turn\` · \`every_other_turn\` (action counts) · \`my_hp_below\` · \`my_hp_above\` · \`their_hp_below\` (percent of max)
 
-- \`fight_start\` — once, before anyone acts.
-- \`my_turn\` / \`always\` — every action this fighter takes.
-- \`their_turn\` — every action the *opponent* takes.
-- \`coin_flip\` (value = percent) — on their action, that often.
-- \`first_turns\` (value = n) — their first n actions.
-- \`after_turn\` (value = n) — their action n onward.
-- \`every_other_turn\` (value = n) — every nth action of theirs.
-- \`my_hp_below\` / \`my_hp_above\` (value = percent of max health).
-- \`their_hp_below\` (value = percent).
-- \`my_meter_full\` — whenever their signature is charged.
-- \`when_i_attack\` — as they throw any move.
-- \`when_i_use_signature\` — as they throw the signature.
-- \`when_i_am_hit\` — a hit is landing on them, before damage applies.
-- \`when_they_use\` (effect = one of ${MOVE_EFFECTS.join(', ')}) — the opponent throws that kind of move.
-- \`when_i_land\` / \`when_i_miss\` — their swing connected, or didn't.
-- \`when_i_would_fall\` — the moment they hit zero health.
-- \`when_they_would_fall\` — the moment the opponent hits zero health.
+With an \`effect\` — one of ${MOVE_EFFECTS.join(', ')}: \`when_they_use\`
 
-### then — pick one per rule
+### then — one per rule
 
-- \`immune\` — the incoming hit does literally nothing. Only meaningful with \`when_i_am_hit\` or \`when_they_use\`.
-- \`damage_taken_mult\` (value, 0-10) — scale the incoming hit. 0 is immunity, 0.5 is half, 3 is very fragile.
-- \`damage_dealt_mult\` (value, 0-10) — scale the hit they're throwing. Use with \`when_i_attack\` or \`when_i_use_signature\`.
-- \`reflect\` (value = percent) — that much of the incoming damage goes back at the attacker.
-- \`heal_self\` (value = health) / \`heal_pct\` (value = percent of max).
-- \`hurt_self\` / \`hurt_them\` (value = health).
-- \`steal_hp\` (value = health) — take it off them and add it to yourself.
-- \`revive\` (value = percent of max) — get back up. Use with \`when_i_would_fall\`.
-- \`stun_them\` — the opponent loses their next action.
-- \`skip_my_turn\` — this fighter loses the action.
-- \`guard\` — brace; the next hit is halved.
-- \`charge_meter\` (value = steps) — advance the signature meter.
-- \`boost_atk\` / \`boost_def\` / \`boost_spd\` (value, -12 to 12) — permanent, and they stack every time the rule fires.
-- \`pressure_add\` (value, track) / \`pressure_mult\` (value, track) — push one of the three non-physical meters: ${PRESSURE_TRACKS.join(', ')}. A meter that reaches 100 ends the fight on the spot.
-- \`silence_them\` — the opponent's rules stop working for the rest of the fight.
-- \`win_now\` — this fighter wins, immediately.
+Plain: \`immune\` (the hit does nothing at all; pair with \`when_i_am_hit\` or \`when_they_use\`) · \`stun_them\` · \`skip_my_turn\` · \`guard\` · \`silence_them\` (the opponent's rules stop working) · \`win_now\`
 
-\`chance\` is a percent, 100 for always. \`times\` caps how often a rule may ever fire, 0 for unlimited — use it for anything that should be a one-off, like a single revive.
+With a \`value\`: \`damage_taken_mult\` · \`damage_dealt_mult\` (0-10; 0 is immunity, 3 is very fragile) · \`reflect\` (percent sent back at the attacker) · \`heal_self\` · \`hurt_self\` · \`hurt_them\` · \`steal_hp\` (health) · \`heal_pct\` · \`revive\` (percent of max; pair revive with \`when_i_would_fall\`) · \`charge_meter\` (steps) · \`boost_atk\` · \`boost_def\` · \`boost_spd\` (-12 to 12, permanent, stacking every time the rule fires)
+
+With a \`track\` — one of ${PRESSURE_TRACKS.join(', ')}: \`pressure_add\` (points) · \`pressure_mult\`. A meter reaching 100 ends the fight on the spot.
+
+\`chance\` is a percent, 100 for always. \`times\` caps how often a rule may ever fire, 0 for unlimited — use it for one-offs like a single revive.
 
 ### Writing them
 
-- **Read the whole description, not just the flaw slot.** A rule can come from any of the four things they wrote, or from the fighter as a whole.
-- **Name each rule and write its line.** The name is a title — "Skin of the Nine Hells", "The Third Nap" — and \`text\` is the sentence the commentary prints when it fires, in the present tense, about this fighter. That line is the only writing the player will see during a fight, so make it land.
-- **Most fighters want one to three.** Zero is correct for a plain description that asks for nothing unusual — do not invent powers nobody requested. ${MAX_RULES} is for someone who really went for it.
-- **Prefer specific over general.** \`when_i_miss → boost_atk 2\` is a fighter who gets angry. \`always → boost_atk 2\` is a spreadsheet.
-- **An absolute is more fun with an edge on it.** If you hand out immunity or an automatic win, consider a second rule that gives the other side a way in — a \`when_they_use\` that switches it off, a \`coin_flip\` on the invulnerability, an \`after_turn\` where it expires. Offer the door if the description leaves room for one. If it doesn't, don't invent one.
+- Read the whole description, not just the flaw slot.
+- Name each rule, and write \`text\` as the line the commentary prints when it fires — present tense, about this fighter. It is the only writing the player sees during a fight, so make it land.
+- One to three suits most fighters. Zero is right for a plain description; do not invent powers nobody asked for. ${MAX_RULES} is for someone who really went for it.
+- Prefer specific over general: \`when_i_miss → boost_atk 2\` is a fighter who gets angry, \`always → boost_atk 2\` is a spreadsheet.
+- An absolute is more fun with an edge on it — a \`when_they_use\` that switches it off, an \`after_turn\` where it expires. Offer the door if the description leaves room for one; if it doesn't, don't invent one.
 
 ## Sprite
 
