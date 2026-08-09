@@ -168,6 +168,8 @@ export interface Rule {
   chance: number
   /** How many times it may ever fire. 0 is unlimited. */
   times: number
+  /** The one power named on the card. Set by the creation "pick a Special" step. */
+  marquee?: boolean
 }
 
 /**
@@ -299,13 +301,22 @@ function normalizeRule(input: unknown): Rule | null {
       : 'hex'
   }
 
+  const UNCONDITIONAL = new Set(['when_i_am_hit', 'always', 'my_turn', 'fight_start', 'their_turn'])
+  // "Invulnerable" = immune fired from a whenever-trigger → total & permanent, in code.
+  // A conditionally-triggered immune (my_hp_below, coin_flip, when_they_use) is a designed
+  // power and keeps its numbers. Other all-or-nothing actions (win_now, silence_them) keep
+  // their odds too — a low-chance instawin/silence is legitimate.
+  const forceAbsolute = act === 'immune' && UNCONDITIONAL.has(on)
+  const marquee = (raw as { marquee?: unknown }).marquee === true
+
   return {
     name: text(raw.name, 'Something', RULE_NAME_MAX),
     text: text(raw.text, '', RULE_TEXT_MAX),
     when,
     then,
-    chance: Math.round(num(raw.chance, 100, 1, 100)),
-    times: Math.round(num(raw.times, 0, 0, 99)),
+    chance: forceAbsolute ? 100 : Math.round(num(raw.chance, 100, 1, 100)),
+    times: forceAbsolute ? 0 : Math.round(num(raw.times, 0, 0, 99)),
+    ...(marquee ? { marquee: true } : {}),
   }
 }
 
