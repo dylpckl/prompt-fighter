@@ -2,7 +2,8 @@ import { normalizeRules } from './rules'
 import type { Rule } from './rules'
 import type { Special } from './specials'
 
-const sig = (r: Rule) => JSON.stringify([r.when.on, r.when.value, r.then.do, r.then.value, r.then.track])
+const sig = (r: Rule) =>
+  JSON.stringify([r.when.on, r.when.value, r.when.effect, r.then.do, r.then.value, r.then.track])
 
 /** Final rules = background + chosen Special (marquee), deduped, ≤6. */
 export function assembleRules(background: Rule[], chosen: Special | null): Rule[] {

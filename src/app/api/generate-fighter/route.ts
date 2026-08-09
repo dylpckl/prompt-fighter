@@ -21,10 +21,14 @@ export const runtime = 'nodejs'
 // cuts the request off.
 export const maxDuration = 60
 
-// Gates the one expensive step — a model call per attempt. `/api/create-fighter`
-// keeps its own copy of the same limit on the insert: a signed candidate can be
-// replayed with different `chosenIndex` values, so this alone doesn't bound how
-// many rows one generation can turn into, only how many times the model runs.
+// Counts PERSISTED rows for this session, so it only bites a session that has
+// already used up its hourly quota of *created* fighters. This endpoint never
+// persists — a session that only calls generate and never calls create keeps
+// count=0 forever, so this gate does NOT bound generate-only model spend; that
+// stays effectively unbounded per session. The real control for a generate-only
+// cost-DoS has to be IP/edge rate limiting, which this per-session cap can't
+// substitute for since `session_id` is client-controlled and cheap to rotate.
+// TODO(follow-up): IP/edge rate limit for /api/generate-fighter — see PR notes
 const FIGHTERS_PER_HOUR = 10
 
 export async function POST(req: Request) {
