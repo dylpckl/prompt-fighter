@@ -74,6 +74,22 @@ const ruleSchema = {
   },
 } as const
 
+const specialsSchema = {
+  type: 'array',
+  description:
+    'Exactly three mechanically-distinct reads of the one standout idea, or [] if there is none. See the system prompt.',
+  items: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['name', 'flavor', 'rule'],
+    properties: {
+      name: { type: 'string', description: `${RULE_NAME_MAX} characters or fewer.` },
+      flavor: { type: 'string', description: `One line, ${RULE_TEXT_MAX} characters or fewer.` },
+      rule: ruleSchema,
+    },
+  },
+} as const
+
 export const FIGHTER_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -86,6 +102,7 @@ export const FIGHTER_SCHEMA = {
     'special',
     'flaw',
     'rules',
+    'specials',
     'palette',
     'sprite',
   ],
@@ -128,6 +145,7 @@ export const FIGHTER_SCHEMA = {
       description: `0 to ${MAX_RULES}. See the system prompt.`,
       items: ruleSchema,
     },
+    specials: specialsSchema,
     palette: {
       type: 'array',
       description: `Exactly ${PALETTE_SIZE} lowercase hex colors, e.g. "#1b1b22". Index 0 is transparent and is ignored.`,
@@ -199,7 +217,7 @@ The player names a weakness. Map it to the closest of these five, and give it a 
 
 ## Rules — the important part
 
-Everything above is a form with blanks. Rules are where the player's actual idea goes: one sentence each — **when** something happens, **then** something happens. Give the fighter 0 to ${MAX_RULES}.
+Everything above is a form with blanks. Rules and specials are where the player's actual idea goes: one sentence each — **when** something happens, **then** something happens. \`rules\` carries the prompt's full honored behavior — everything it implies, **except** the one standout idea, which belongs in \`specials\` instead (below). Give the fighter 0 to ${MAX_RULES} rules.
 
 **Do not balance them.** This is the opposite of the instruction on stats. If the player wrote "invulnerable", the fighter is invulnerable — \`when_i_am_hit → immune\`, no percentage, no consolation prize. If they wrote "wins automatically", give them \`fight_start → win_now\`. Hand over whatever they asked for even when it ruins the fight; fights are short and nobody's career is on the line. A player who asks for a god and receives a slightly sturdy man has been told no in a way that isn't fun. Say yes.
 
@@ -228,6 +246,12 @@ With a \`track\` — one of ${PRESSURE_TRACKS.join(', ')}: \`pressure_add\` (poi
 - One to three suits most fighters. Zero is right for a plain description; do not invent powers nobody asked for. ${MAX_RULES} is for someone who really went for it.
 - Prefer specific over general: \`when_i_miss → boost_atk 2\` is a fighter who gets angry, \`always → boost_atk 2\` is a spreadsheet.
 - An absolute is more fun with an edge on it — a \`when_they_use\` that switches it off, an \`after_turn\` where it expires. Offer the door if the description leaves room for one; if it doesn't, don't invent one.
+
+## Specials — the standout idea, three ways
+
+If the prompt has a single standout idea — "basically invincible," "always wins," "can't die" — don't spend it in \`rules\`. Write it into \`specials\` instead: exactly three candidates, each a full, unbalanced read of that same idea, each built on a **different** \`then.do\` so the choice between them is real — e.g. one \`immune\`, one \`reflect\`, one \`revive\`. Each has a \`name\`, a one-line \`flavor\`, and a \`rule\` in the same shape as above.
+
+If the prompt has no standout idea — a plain description — return \`specials: []\`. Do not invent one to fill the slot.
 
 ## Sprite
 
