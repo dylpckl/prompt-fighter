@@ -96,6 +96,31 @@ export interface FighterCore {
   rules?: Rule[]
 }
 
+/**
+ * What `/api/generate-fighter` hands back before a Special is even chosen: the
+ * model's read of the four prompts, already safety-checked and run through the
+ * same normalizers a stored fighter gets, but with no id, record, or session
+ * attached — and no `prompts`, which never leaves the server (see
+ * lib/server/fighters.ts).
+ *
+ * `rules` here is the *background* set — everything the prompt implies except
+ * the one standout idea. `/api/create-fighter` runs it through `assembleRules`
+ * with the chosen Special before it ever reaches the database; it is never
+ * inserted as-is.
+ *
+ * `/api/create-fighter` trusts every field on this unmodified — see
+ * lib/server/sign.ts. Never spread it into an insert; take fields by name.
+ */
+export interface Candidate {
+  name: string
+  title: string
+  stats: Stats
+  moves: [Move, Move]
+  flaw: Flaw
+  rules: Rule[]
+  sprite: Sprite
+}
+
 export interface Fighter extends FighterCore {
   id: string
   title: string

@@ -2,17 +2,34 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import type { Fighter, FighterPrompts } from '@/lib/engine/types'
-import { createFighter, fetchFighter, requestFight, type FightResult } from '@/lib/api'
+import type { Candidate, Fighter, FighterPrompts } from '@/lib/engine/types'
+import type { Special } from '@/lib/engine/specials'
+import {
+  createFighter,
+  fetchFighter,
+  generateCandidates,
+  requestFight,
+  type FightResult,
+} from '@/lib/api'
 import { getSessionId, getStoredFighterId, setStoredFighterId } from '@/lib/session'
 import { getReturnRoom, setReturnRoom } from '@/components/roomReturn'
 import { Builder } from '@/screens/Builder'
+import { Choose } from '@/screens/Choose'
 import { Reveal } from '@/screens/Reveal'
 import { Arena } from '@/screens/Arena'
 import { RoomEntry } from '@/screens/RoomEntry'
 import { button, label, panel, t } from '@/theme'
 
-type Screen = 'loading' | 'build' | 'reveal' | 'arena' | 'rooms'
+type Screen = 'loading' | 'build' | 'choose' | 'reveal' | 'arena' | 'rooms'
+
+/** A generated candidate waiting on the "pick a Special" step. */
+interface Draft {
+  candidate: Candidate
+  specials: Special[]
+  signature: string
+  /** Threaded through to `createFighter` — never round-tripped from the server. */
+  prompts: FighterPrompts
+}
 
 function message(err: unknown): string {
   return err instanceof Error ? err.message : 'Something went wrong.'
@@ -43,6 +60,8 @@ function Game() {
   const [error, setError] = useState<string | null>(null)
   /** A room this visitor was sent away from to build a fighter first. */
   const [pendingRoom, setPendingRoom] = useState<string | null>(null)
+  /** Generated, signed, and awaiting a Special pick — see `screen === 'choose'`. */
+  const [draft, setDraft] = useState<Draft | null>(null)
 
   // Returning player: pick their fighter back up. localStorage is only
   // available after mount, so this can't run during render.
@@ -73,21 +92,47 @@ function Game() {
     }
   }, [])
 
+  // Shared by both creation paths: the direct 0-Specials insert and the pick
+  // step at the end of 'choose'.
+  const finishCreate = useCallback(
+    (made: Fighter) => {
+      setStoredFighterId(made.id)
+      setFighter(made)
+      setResult(null)
+      setDraft(null)
+      setScreen('reveal')
+      // They only came here to get into a room. Hand them straight back.
+      if (pendingRoom) {
+        setReturnRoom(null)
+        setPendingRoom(null)
+        router.push(`/room/${pendingRoom}`)
+      }
+    },
+    [pendingRoom, router],
+  )
+
   const handleCreate = useCallback(
     async (prompts: FighterPrompts) => {
       setBusy(true)
       setError(null)
       try {
-        const { fighter: made } = await createFighter(getSessionId(), prompts)
-        setStoredFighterId(made.id)
-        setFighter(made)
-        setResult(null)
-        setScreen('reveal')
-        // They only came here to get into a room. Hand them straight back.
-        if (pendingRoom) {
-          setReturnRoom(null)
-          setPendingRoom(null)
-          router.push(`/room/${pendingRoom}`)
+        const sessionId = getSessionId()
+        const { candidate, specials, signature } = await generateCandidates(prompts, sessionId)
+        // A plain description has no standout idea — generation returns no
+        // candidates, and there is nothing to choose between.
+        if (specials.length === 0) {
+          const { fighter: made } = await createFighter(
+            candidate,
+            specials,
+            signature,
+            null,
+            sessionId,
+            prompts,
+          )
+          finishCreate(made)
+        } else {
+          setDraft({ candidate, specials, signature, prompts })
+          setScreen('choose')
         }
       } catch (err) {
         setError(message(err))
@@ -95,7 +140,31 @@ function Game() {
         setBusy(false)
       }
     },
-    [pendingRoom, router],
+    [finishCreate],
+  )
+
+  const handleChoose = useCallback(
+    async (index: number) => {
+      if (!draft) return
+      setBusy(true)
+      setError(null)
+      try {
+        const { fighter: made } = await createFighter(
+          draft.candidate,
+          draft.specials,
+          draft.signature,
+          index,
+          getSessionId(),
+          draft.prompts,
+        )
+        finishCreate(made)
+      } catch (err) {
+        setError(message(err))
+      } finally {
+        setBusy(false)
+      }
+    },
+    [draft, finishCreate],
   )
 
   const handleFight = useCallback(async () => {
@@ -141,6 +210,7 @@ function Game() {
     setStoredFighterId(null)
     setFighter(null)
     setResult(null)
+    setDraft(null)
     setError(null)
     setScreen('build')
   }, [])
@@ -161,6 +231,16 @@ function Game() {
       {screen === 'loading' && <p style={{ ...label, textAlign: 'center' }}>Loading…</p>}
 
       {screen === 'build' && <Builder onSubmit={handleCreate} busy={busy} error={error} />}
+
+      {screen === 'choose' && draft && (
+        <Choose
+          candidate={draft.candidate}
+          specials={draft.specials}
+          onPick={handleChoose}
+          busy={busy}
+          error={error}
+        />
+      )}
 
       {/* Somebody followed a room link without a fighter, built one, and came
           back around. Don't make them find the link again. */}
