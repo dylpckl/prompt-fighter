@@ -1,24 +1,37 @@
 'use client'
 
-import { FightStage, stageSide } from '@/components/FightStage'
-import { StatBlock } from '@/components/StatBlock'
 import { normalizeRules } from '@/lib/engine/rules'
-import { simulate } from '@/lib/engine/sim'
+import { StatBlock } from '@/components/StatBlock'
 import type { Fighter } from '@/lib/engine/types'
 import { label, panel } from '@/theme'
 
 /**
- * Layout check for rules, at the two widths CLAUDE.md pins.
+ * Layout check for the card, at the two widths CLAUDE.md pins.
  *
- * Both fixtures are deliberately the worst case rather than typical fighters:
- * the cap of six rules, the longest name and sentence the normalizer will let
- * through, and one unbroken 26-character name with no spaces in it — that last
- * one is the case that silently widens a grid track past the viewport.
+ * This used to render the old many-rules `StatBlock` — a wall of up to six
+ * rules. That layout is moot: the card now shows four bars, both move names,
+ * the flaw, and at most one Special (the fighter's `marquee` rule) — see
+ * `cardModel`. What's still worth stress-testing is the same thing it always
+ * was, worst-case text at 375px and at 1280px, just aimed at the new,
+ * smaller surface.
  *
- * The fight below is a real `simulate()` call, not a mocked log, so the beats
- * this renders are exactly the beats the arena would render.
+ * Both fixtures below are deliberately the worst case rather than typical
+ * fighters: the longest name and flavour line the normalizer will let
+ * through (`RULE_NAME_MAX` / `RULE_TEXT_MAX` in `lib/engine/rules.ts`), and
+ * one unbroken 26-character word with no spaces in it, set as the `marquee`
+ * so it lands as the Special's name — the case that silently widens a grid
+ * track past the viewport if `overflowWrap` ever regresses.
  */
 const CINDER_RULES = normalizeRules([
+  {
+    name: 'Unbrokenwordthatnevrwraps',
+    text: 'Nothing about this is reasonable, and it keeps not being reasonable, one clause after another with nowhere natural to break.',
+    when: { on: 'when_they_use', value: 0, effect: 'heavy' },
+    then: { do: 'damage_taken_mult', value: 3 },
+    chance: 65,
+    times: 0,
+    marquee: true,
+  },
   {
     name: 'Skin of the Nine Hells',
     text: 'The blade snaps against him and he does not look up.',
@@ -27,56 +40,17 @@ const CINDER_RULES = normalizeRules([
     chance: 100,
     times: 0,
   },
-  {
-    name: 'Unbrokenwordthatnevrwraps',
-    text: 'Nothing about this is reasonable, and it keeps not being reasonable.',
-    when: { on: 'when_they_use', value: 0, effect: 'heavy' },
-    then: { do: 'damage_taken_mult', value: 3 },
-    chance: 65,
-    times: 0,
-  },
-  {
-    name: 'The Third Nap',
-    text: 'He sits down mid-round. Nobody stops him.',
-    when: { on: 'every_other_turn', value: 3 },
-    then: { do: 'skip_my_turn', value: 0 },
-    chance: 100,
-    times: 0,
-  },
-  {
-    name: 'Grandmother, Named Aloud',
-    text: 'Someone says it out loud. The skin goes ordinary.',
-    when: { on: 'their_hp_below', value: 40 },
-    then: { do: 'silence_them', value: 0 },
-    chance: 100,
-    times: 1,
-  },
-  {
-    name: 'Spite Compounding',
-    text: 'Every miss makes the next one worse for everybody in the building.',
-    when: { on: 'when_i_miss', value: 0 },
-    then: { do: 'boost_atk', value: 4 },
-    chance: 100,
-    times: 0,
-  },
-  {
-    name: 'One More, Then',
-    text: 'He gets back up. He wants everyone to know this is the last time.',
-    when: { on: 'when_i_would_fall', value: 0 },
-    then: { do: 'revive', value: 45 },
-    chance: 100,
-    times: 1,
-  },
 ])
 
 const RIVAL_RULES = normalizeRules([
   {
     name: 'The Long Complaint',
-    text: 'She starts listing his failings. The room begins to agree.',
+    text: 'She starts listing his failings one by one, pitched exactly for the back row, and the room begins to agree with her before he gets a word in.',
     when: { on: 'my_turn', value: 0 },
     then: { do: 'pressure_add', value: 9, track: 'crowd' },
     chance: 100,
     times: 0,
+    marquee: true,
   },
   {
     name: 'Opening Statement',
@@ -136,23 +110,26 @@ const RIVAL = fixture('rival', 'Marguerite Vance', 'Of Counsel', RIVAL_RULES, {
 })
 
 export default function RulesPreviewPage() {
-  const result = simulate(CINDER, RIVAL, 20260806)
-
   return (
     <div className="shell--wide shell">
-      <p style={{ ...label, margin: '0 0 8px' }}>Fighter sheet</p>
-      <div style={{ ...panel, padding: 14, marginBottom: 20 }}>
-        <StatBlock fighter={CINDER} />
+      <p style={{ ...label, margin: '0 0 8px' }}>Card, worst case</p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: 16,
+        }}
+      >
+        {/* minWidth: 0 on every grid child holding text — CLAUDE.md: grid
+            children default to min-width: auto, and a long word or an
+            un-wrapped label silently pushes a track wider than the viewport. */}
+        <div style={{ ...panel, padding: 14, minWidth: 0 }}>
+          <StatBlock fighter={CINDER} />
+        </div>
+        <div style={{ ...panel, padding: 14, minWidth: 0 }}>
+          <StatBlock fighter={RIVAL} />
+        </div>
       </div>
-
-      <p style={{ ...label, margin: '0 0 8px' }}>Arena, every beat drawn</p>
-      <FightStage
-        a={stageSide(CINDER)}
-        b={stageSide(RIVAL)}
-        log={result.log}
-        maxHp={result.maxHp}
-        step={result.log.length}
-      />
     </div>
   )
 }
