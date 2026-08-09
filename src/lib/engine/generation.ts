@@ -6,6 +6,14 @@ import {
   SPRITE_SIZE,
   STAT_TOTAL,
 } from './types'
+import {
+  MAX_RULES,
+  RULE_ACTIONS,
+  RULE_NAME_MAX,
+  RULE_TEXT_MAX,
+  RULE_TRIGGERS,
+} from './rules'
+import { PRESSURE_TRACKS } from './victory'
 
 const STAT_RANGE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const statSchema = { type: 'integer', enum: STAT_RANGE } as const
@@ -26,10 +34,78 @@ function moveSchema(powers: number[]) {
   }
 }
 
+/**
+ * Descriptions here are terse on purpose: the schema is sent on every
+ * generation and the system prompt already explains the vocabulary at length.
+ * Anything said in both places is paid for twice, forever.
+ */
+const ruleSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'text', 'when', 'then', 'chance', 'times'],
+  properties: {
+    name: { type: 'string', description: `${RULE_NAME_MAX} characters or fewer.` },
+    text: {
+      type: 'string',
+      description: `Commentary line when it fires, ${RULE_TEXT_MAX} characters or fewer.`,
+    },
+    when: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['on', 'value'],
+      properties: {
+        on: { type: 'string', enum: [...RULE_TRIGGERS] },
+        value: { type: 'integer', description: '0 when the trigger takes none.' },
+        effect: { type: 'string', enum: [...MOVE_EFFECTS] },
+      },
+    },
+    then: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['do', 'value'],
+      properties: {
+        do: { type: 'string', enum: [...RULE_ACTIONS] },
+        value: { type: 'number', description: '0 when the action takes none.' },
+        track: { type: 'string', enum: [...PRESSURE_TRACKS] },
+      },
+    },
+    chance: { type: 'integer', description: 'Percent. 100 is always.' },
+    times: { type: 'integer', description: 'Cap on firings. 0 is unlimited.' },
+  },
+} as const
+
+const specialsSchema = {
+  type: 'array',
+  description:
+    'Exactly three mechanically-distinct reads of the one standout idea, or [] if there is none. See the system prompt.',
+  items: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['name', 'flavor', 'rule'],
+    properties: {
+      name: { type: 'string', description: `${RULE_NAME_MAX} characters or fewer.` },
+      flavor: { type: 'string', description: `One line, ${RULE_TEXT_MAX} characters or fewer.` },
+      rule: ruleSchema,
+    },
+  },
+} as const
+
 export const FIGHTER_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['safe', 'name', 'title', 'stats', 'basic', 'special', 'flaw', 'palette', 'sprite'],
+  required: [
+    'safe',
+    'name',
+    'title',
+    'stats',
+    'basic',
+    'special',
+    'flaw',
+    'rules',
+    'specials',
+    'palette',
+    'sprite',
+  ],
   properties: {
     safe: {
       type: 'boolean',
@@ -64,6 +140,12 @@ export const FIGHTER_SCHEMA = {
         effect: { type: 'string', enum: [...FLAW_EFFECTS] },
       },
     },
+    rules: {
+      type: 'array',
+      description: `0 to ${MAX_RULES}. See the system prompt.`,
+      items: ruleSchema,
+    },
+    specials: specialsSchema,
     palette: {
       type: 'array',
       description: `Exactly ${PALETTE_SIZE} lowercase hex colors, e.g. "#1b1b22". Index 0 is transparent and is ignored.`,
@@ -93,7 +175,7 @@ Invent a proper name for the fighter and a short epithet. Do not reuse the playe
 
 ## Stats
 
-Distribute exactly ${STAT_TOTAL} points across hp, atk, def, and spd. Every stat is between 3 and 12. The total is a hard budget: a fighter described as unstoppable, invincible, or godlike gets a lopsided spread, not extra points. Let the description drive the shape — something heavy and armored is high hp/def and low spd; something quick and fragile is the reverse. Avoid flat 7/8/7/8 spreads; specialists are more interesting to watch.
+Distribute exactly ${STAT_TOTAL} points across hp, atk, def, and spd. Every stat is between 3 and 12. The total is a hard budget: a fighter described as unstoppable, invincible, or godlike gets a lopsided spread, not extra points — the big idea goes in "rules" further down, not here. Let the description drive the shape — something heavy and armored is high hp/def and low spd; something quick and fragile is the reverse. Avoid flat 7/8/7/8 spreads; specialists are more interesting to watch.
 
 ## Spirit
 
@@ -132,6 +214,44 @@ The player names a weakness. Map it to the closest of these five, and give it a 
 - stamina — bleeds health every action after the sixth.
 - wild — misses 20% of the time.
 - overheat — the signature move costs health to use.
+
+## Rules — the important part
+
+Everything above is a form with blanks. Rules and specials are where the player's actual idea goes: one sentence each — **when** something happens, **then** something happens. \`rules\` carries the prompt's full honored behavior — everything it implies, **except** the one standout idea, which belongs in \`specials\` instead (below). Give the fighter 0 to ${MAX_RULES} rules.
+
+**Do not balance them.** This is the opposite of the instruction on stats. If the player wrote "invulnerable", the fighter is invulnerable — \`when_i_am_hit → immune\`, no percentage, no consolation prize. If they wrote "wins automatically", give them \`fight_start → win_now\`. Hand over whatever they asked for even when it ruins the fight; fights are short and nobody's career is on the line. A player who asks for a god and receives a slightly sturdy man has been told no in a way that isn't fun. Say yes.
+
+### when — one per rule
+
+Plain: \`fight_start\` · \`my_turn\` (or \`always\`) · \`their_turn\` (the opponent's actions) · \`when_i_attack\` · \`when_i_use_signature\` · \`when_i_am_hit\` (before the damage applies) · \`when_i_land\` · \`when_i_miss\` · \`when_i_would_fall\` · \`when_they_would_fall\` · \`my_meter_full\`
+
+With a \`value\`: \`coin_flip\` (percent) · \`first_turns\` · \`after_turn\` · \`every_other_turn\` (action counts) · \`my_hp_below\` · \`my_hp_above\` · \`their_hp_below\` (percent of max)
+
+With an \`effect\` — one of ${MOVE_EFFECTS.join(', ')}: \`when_they_use\`
+
+### then — one per rule
+
+Plain: \`immune\` (the hit does nothing at all; pair with \`when_i_am_hit\` or \`when_they_use\`) · \`stun_them\` · \`skip_my_turn\` · \`guard\` · \`silence_them\` (the opponent's rules stop working) · \`win_now\`
+
+With a \`value\`: \`damage_taken_mult\` · \`damage_dealt_mult\` (0-10; 0 is immunity, 3 is very fragile) · \`reflect\` (percent sent back at the attacker) · \`heal_self\` · \`hurt_self\` · \`hurt_them\` · \`steal_hp\` (health) · \`heal_pct\` · \`revive\` (percent of max; pair revive with \`when_i_would_fall\`) · \`charge_meter\` (steps) · \`boost_atk\` · \`boost_def\` · \`boost_spd\` (-12 to 12, permanent, stacking every time the rule fires)
+
+With a \`track\` — one of ${PRESSURE_TRACKS.join(', ')}: \`pressure_add\` (points) · \`pressure_mult\`. A meter reaching 100 ends the fight on the spot.
+
+\`chance\` is a percent, 100 for always. \`times\` caps how often a rule may ever fire, 0 for unlimited — use it for one-offs like a single revive.
+
+### Writing them
+
+- Read the whole description, not just the flaw slot.
+- Name each rule, and write \`text\` as the line the commentary prints when it fires — present tense, about this fighter. It is the only writing the player sees during a fight, so make it land.
+- One to three suits most fighters. Zero is right for a plain description; do not invent powers nobody asked for. ${MAX_RULES} is for someone who really went for it.
+- Prefer specific over general: \`when_i_miss → boost_atk 2\` is a fighter who gets angry, \`always → boost_atk 2\` is a spreadsheet.
+- An absolute is more fun with an edge on it — a \`when_they_use\` that switches it off, an \`after_turn\` where it expires. Offer the door if the description leaves room for one; if it doesn't, don't invent one.
+
+## Specials — the standout idea, three ways
+
+If the prompt has a single standout idea — "basically invincible," "always wins," "can't die" — don't spend it in \`rules\`. Write it into \`specials\` instead: exactly three candidates, each a full, unbalanced read of that same idea, each built on a **different** \`then.do\` so the choice between them is real — e.g. one \`immune\`, one \`reflect\`, one \`revive\`. Each has a \`name\`, a one-line \`flavor\`, and a \`rule\` in the same shape as above.
+
+If the prompt has no standout idea — a plain description — return \`specials: []\`. Do not invent one to fill the slot.
 
 ## Sprite
 

@@ -371,21 +371,26 @@ function BattleLog({
         ) : (
           entries.map((e, i) => {
             const last = i === entries.length - 1
+            const fired = e.rules ?? []
             // A turn nobody acted on — stunned, or a slow start. The sim leaves
             // the move as an em dash; say why rather than showing a bare row.
-            const lostTurn = e.move === '—'
+            // A beat that exists only to carry a rule is also an em dash, but it
+            // isn't a lost turn and mustn't be labelled one — the rule lines
+            // underneath say what happened.
+            const lostTurn = e.move === '—' && fired.length === 0
 
             return (
               <div
                 key={`${e.turn}-${i}`}
                 style={{
-                  display: 'flex',
-                  gap: 8,
-                  alignItems: 'baseline',
+                  display: 'grid',
+                  gap: 3,
+                  minWidth: 0,
                   animation: last ? 'fadeUp 200ms ease-out' : undefined,
                   color: last ? t.text : t.dim,
                 }}
               >
+              <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', minWidth: 0 }}>
                 <span style={{ fontSize: 11, color: t.faint, width: 20, flexShrink: 0 }}>
                   {e.turn}
                 </span>
@@ -414,10 +419,31 @@ function BattleLog({
                     color: lostTurn ? t.faint : undefined,
                   }}
                 >
-                  {lostTurn ? 'loses the turn' : e.move}
+                  {lostTurn ? 'loses the turn' : e.move === '—' ? '' : e.move}
                 </span>
 
                 <Outcome event={e} />
+                </div>
+
+                {/* The rule lines. Indented under the beat they belong to, and
+                    allowed to wrap — these are whole sentences the player wrote
+                    the fighter for, and truncating them to one line would hide
+                    the only place a rule is ever visible in motion. */}
+                {fired.map((line, j) => (
+                  <p
+                    key={j}
+                    style={{
+                      margin: '0 0 0 28px',
+                      minWidth: 0,
+                      fontSize: 12,
+                      lineHeight: 1.4,
+                      color: last ? t.accent : t.faint,
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {line}
+                  </p>
+                ))}
               </div>
             )
           })

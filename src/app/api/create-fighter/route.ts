@@ -2,30 +2,62 @@ import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/server/supabase'
 import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
-import { RefusedError, generateFighter } from '@/lib/server/generate'
-import {
-  ValidationError,
-  hydrateFighter,
-  normalizeFlaw,
-  normalizeMove,
-  normalizeSprite,
-  normalizeStats,
-  parsePrompts,
-  parseUuid,
-} from '@/lib/engine/validate'
+import { verifyCandidate } from '@/lib/server/sign'
+import { assembleRules } from '@/lib/engine/assemble'
+import type { Special } from '@/lib/engine/specials'
+import { ValidationError, hydrateFighter, parsePrompts, parseUuid } from '@/lib/engine/validate'
+import type { Candidate } from '@/lib/engine/types'
 
 export const runtime = 'nodejs'
-// Generation is the slowest thing in the app; give it room before the platform
-// cuts the request off.
-export const maxDuration = 60
 
+// `/api/generate-fighter` gates the costly step (the model call). This is a
+// second, independent gate on the insert itself — a signed candidate can be
+// replayed with different `chosenIndex` values, so without a limit here one
+// generation could be turned into unlimited rows.
 const FIGHTERS_PER_HOUR = 10
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}))
     const sessionId = parseUuid(body.sessionId, 'session')
+    // The model never sees these again after generation, but the row still
+    // records what was asked for — it's the player's own writing, submitted
+    // fresh here exactly as it always was pre-split; the server still never
+    // sends it back out (see lib/server/fighters.ts).
     const prompts = parsePrompts(body.prompts)
+
+    if (!body.candidate || typeof body.candidate !== 'object') {
+      throw new ValidationError('Missing candidate.')
+    }
+    if (!Array.isArray(body.specials)) {
+      throw new ValidationError('Missing specials.')
+    }
+    if (typeof body.signature !== 'string' || !body.signature) {
+      throw new ValidationError('Missing signature.')
+    }
+
+    // This is the anti-cheat. Rules are deliberately unbounded (lib/engine/rules.ts),
+    // so the only thing that may reach the database is a candidate this server
+    // generated, safety-checked, and signed itself — never re-validated here,
+    // because verification *is* the validation. A tampered or hand-crafted
+    // payload fails this and goes no further.
+    const verified = verifyCandidate({ candidate: body.candidate, specials: body.specials }, body.signature)
+    if (!verified) {
+      return NextResponse.json(
+        { error: "That fighter changed on the way here. Try again." },
+        { status: 400 },
+      )
+    }
+
+    const candidate = body.candidate as Candidate
+    const specials = body.specials as Special[]
+
+    const chosenIndex =
+      typeof body.chosenIndex === 'number' && Number.isInteger(body.chosenIndex)
+        ? body.chosenIndex
+        : null
+    const chosen = chosenIndex == null ? null : (specials[chosenIndex] ?? null)
+    const rules = assembleRules(candidate.rules, chosen)
 
     const db = supabaseAdmin()
 
@@ -44,27 +76,23 @@ export async function POST(req: Request) {
       )
     }
 
-    const generated = await generateFighter(prompts)
-    if (!generated.safe) {
-      return NextResponse.json(
-        { error: "That fighter didn't make it past the door. Try something else." },
-        { status: 422 },
-      )
-    }
-
+    // Explicit named fields off `candidate` — never spread it. `session_id`
+    // comes from the request, never the payload; `id`/`wins`/`losses`/
+    // `created_at` are DB defaults.
     const fighter = {
       session_id: sessionId,
-      name: (generated.name || 'Nameless').trim().slice(0, 24),
-      title: (generated.title || 'Unproven').trim().slice(0, 32),
+      name: candidate.name,
+      title: candidate.title,
       prompts,
-      stats: normalizeStats(generated.stats),
-      moves: [normalizeMove(generated.basic, 'basic'), normalizeMove(generated.special, 'special')],
-      flaw: normalizeFlaw(generated.flaw),
-      sprite: normalizeSprite(generated.palette, generated.sprite),
+      stats: candidate.stats,
+      moves: candidate.moves,
+      flaw: candidate.flaw,
+      rules,
+      sprite: candidate.sprite,
     }
 
-    // The caller owns this row, so nothing here would leak — but every fighter
-    // leaves through the same projection so there is one rule to remember.
+    // Every fighter leaves through the same projection so there is one rule to
+    // remember — never select('*') here.
     const { data, error } = await db
       .from('fighters')
       .insert(fighter)
@@ -74,9 +102,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ fighter: hydrateFighter(data) })
   } catch (err) {
-    if (err instanceof RefusedError) {
-      return NextResponse.json({ error: err.message }, { status: 422 })
-    }
     if (err instanceof ValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 })
     }

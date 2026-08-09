@@ -18,6 +18,8 @@ export interface Generated {
   basic: unknown
   special: unknown
   flaw: unknown
+  rules: unknown
+  specials: unknown
   palette: unknown
   sprite: unknown
 }

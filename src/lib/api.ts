@@ -1,4 +1,5 @@
-import type { Fighter, FighterPrompts, SimResult, Sprite } from '@/lib/engine/types'
+import type { Candidate, Fighter, FighterPrompts, SimResult, Sprite } from '@/lib/engine/types'
+import type { Special } from '@/lib/engine/specials'
 import type { VictoryType } from '@/lib/engine/victory'
 
 export interface FightResult extends SimResult {
@@ -38,13 +39,44 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T
 }
 
+/** Generation output before a Special is picked — see `assembleRules`. */
+export interface GeneratedCandidate {
+  candidate: Candidate
+  specials: Special[]
+  signature: string
+}
+
+/**
+ * The costly step, on its own: runs the model, the safety gate, and signs the
+ * result. Does not persist anything — see `createFighter`.
+ */
+export function generateCandidates(
+  prompts: FighterPrompts,
+  sessionId: string,
+): Promise<GeneratedCandidate> {
+  return request('/api/generate-fighter', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, prompts }),
+  })
+}
+
+/**
+ * Persists a candidate `generateCandidates` already produced, optionally with
+ * one of its Specials picked (`chosenIndex`, or `null` when there were none to
+ * pick from). `signature` is what lets the server trust `candidate`/`specials`
+ * without re-deriving them — see lib/server/sign.ts.
+ */
 export function createFighter(
+  candidate: Candidate,
+  specials: Special[],
+  signature: string,
+  chosenIndex: number | null,
   sessionId: string,
   prompts: FighterPrompts,
 ): Promise<{ fighter: Fighter }> {
   return request('/api/create-fighter', {
     method: 'POST',
-    body: JSON.stringify({ sessionId, prompts }),
+    body: JSON.stringify({ sessionId, prompts, candidate, specials, signature, chosenIndex }),
   })
 }
 

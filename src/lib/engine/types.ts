@@ -6,6 +6,7 @@
 
 // Type-only, so this doesn't create a runtime cycle with victory.ts.
 import type { PressureTrack, VictoryType } from './victory'
+import type { Rule } from './rules'
 
 export const MOVE_EFFECTS = ['damage', 'heavy', 'heal', 'guard', 'drain', 'stun'] as const
 export const FLAW_EFFECTS = ['glass', 'slow_start', 'stamina', 'wild', 'overheat'] as const
@@ -84,6 +85,40 @@ export interface FighterCore {
    * read before migration 0005, must simulate exactly as it always did.
    */
   favorites?: number
+  /**
+   * The part of this fighter that isn't a number — see `lib/engine/rules.ts`.
+   *
+   * Optional, and absent means none: a fixture written before rules existed, or
+   * a row read before migration 0006, must simulate exactly as it always did.
+   * A fighter with no rules never draws from the rules RNG stream at all, so
+   * "no rules" is bit-identical to "rules didn't exist yet", not merely similar.
+   */
+  rules?: Rule[]
+}
+
+/**
+ * What `/api/generate-fighter` hands back before a Special is even chosen: the
+ * model's read of the four prompts, already safety-checked and run through the
+ * same normalizers a stored fighter gets, but with no id, record, or session
+ * attached — and no `prompts`, which never leaves the server (see
+ * lib/server/fighters.ts).
+ *
+ * `rules` here is the *background* set — everything the prompt implies except
+ * the one standout idea. `/api/create-fighter` runs it through `assembleRules`
+ * with the chosen Special before it ever reaches the database; it is never
+ * inserted as-is.
+ *
+ * `/api/create-fighter` trusts every field on this unmodified — see
+ * lib/server/sign.ts. Never spread it into an insert; take fields by name.
+ */
+export interface Candidate {
+  name: string
+  title: string
+  stats: Stats
+  moves: [Move, Move]
+  flaw: Flaw
+  rules: Rule[]
+  sprite: Sprite
 }
 
 export interface Fighter extends FighterCore {
@@ -104,6 +139,11 @@ export interface Fighter extends FighterCore {
    * have to mention favorites at all.
    */
   favorites: number
+  /**
+   * Required here, optional on `FighterCore`, for the same reason `favorites`
+   * is: a stored fighter always has a list, even if it's empty.
+   */
+  rules: Rule[]
 }
 
 export type Side = 'a' | 'b'
@@ -123,6 +163,15 @@ export interface TurnEvent {
   /** Signature-meter charge of both sides *after* this action resolves. */
   meter: Record<Side, number>
   text: string
+  /**
+   * Rules that fired on this beat, already rendered as "Name: line".
+   *
+   * Separate from `text` rather than folded into it, because the two are read by
+   * different things: `text` is the physical narration of the action, and this
+   * is the only place a player ever sees the rule they asked for actually doing
+   * something. The log renders these; nothing renders `text` today.
+   */
+  rules: string[]
 }
 
 export interface SimResult {

@@ -61,12 +61,74 @@ because a JSON schema can express an enum but not "these four numbers sum to
 30". A weaker model returning an illegal spread is fine — it gets corrected.
 Don't move that logic into the prompt.
 
+## Rules are deliberately *not* budgeted
+
+`engine/rules.ts` is the exception to everything above, and it is on purpose.
+A fighter carries up to six `when → then` sentences drawn from a fixed
+vocabulary, and there is no point budget on them at all. If a player writes
+"invulnerable" they get `when_i_am_hit → immune` — a real, absolute, unfair
+immunity. Do not add a cost, a cap, or a balance pass. Being told no is the
+failure mode this system exists to remove.
+
+The stat budgets stay because a stat line is permanent and moves a W/L record.
+Rules are loose because the whole point is that the player gets the fighter they
+described. Yes, this means someone can build a fighter that always wins, and
+yes, they will climb the leaderboard. That is a known and accepted consequence,
+not a bug to fix.
+
+**The one invariant is that a fight ends.** Everything in `rules.ts` is written
+to hold that: rules fire only from sim hooks so nothing cascades, no action
+touches the round counter, and every action is clamped and total. `MAX_ACTIONS_
+PER_SIDE` in `sim.ts` is the absolute ceiling and nothing a rule does can reach
+it. Two immortal fighters go the distance and win on the decision.
+`tests/rules.test.ts` asserts this against every trigger × action pair and
+against randomly generated six-rule fighters; if you add a trigger or an action,
+that test is the one that has to keep passing.
+
+Two mechanical traps worth knowing:
+
+- **Rules draw from their own RNG stream** (`RULES_SALT`), same reasoning as
+  pressure's. A fighter with rules must not shift a single physical roll for the
+  fighter without them — that's what keeps every fight already on record
+  reproducible, and there's a test pinning it.
+- **`TurnEvent.rules` is what the UI renders, not `TurnEvent.text`.** Nothing
+  renders `text` today. If you add narration and can't see it, that's why.
+
+Rules make generation meaningfully harder than picking from an enum — the model
+has to compose, not classify. This raises the floor on model tier; don't assume
+a cheaper one still produces coherent rules without looking at the output.
+
 ## Model and cost
 
-Generation is one Opus 5 call per fighter, `effort: 'low'`, ~$0.011 warm /
-~$0.026 cold. `effort` is **rejected outright by Haiku 4.5** — dropping to a
-cheaper tier means removing the parameter, not just changing the id. See
-`/dev/model-comparison` for measured quality and cost per model.
+Generation is one Sonnet 5 call per fighter, `effort: 'low'`. (This note used to
+say Opus 5 at ~$0.011 warm / ~$0.026 cold; `server/generate.ts` moved to Sonnet 5
+and the note didn't follow. Don't trust either figure without re-measuring.)
+`effort` is **rejected outright by Haiku 4.5** — dropping to a cheaper tier means
+removing the parameter, not just changing the id. See `/dev/model-comparison` for
+measured quality and cost per model.
+
+Cost facts worth keeping straight, because three of them are counter-intuitive:
+
+- **The system prompt is billed on nearly every call, at 1.25×.** It carries a
+  `cache_control: ephemeral` breakpoint, which is a *5-minute* TTL — so a cache
+  write costs 1.25× and a read costs 0.1×. Break-even is two generations inside
+  five minutes. A room filling up or a `seed` run clears that easily; one person
+  making one fighter never does and pays the 1.25× premium every time. Keep the
+  breakpoint (the burst cases are the expensive ones), but treat every token
+  added to `SYSTEM_PROMPT` as a token billed at 1.25× on most calls.
+- **The response schema is not covered by that breakpoint.** `FIGHTER_SCHEMA`
+  rides in `output_config.format`, outside the tools → system → messages prefix,
+  so it is billed at full input price on every single call. Anything explained in
+  both the schema `description` fields and the system prompt is paid for twice,
+  forever — keep schema descriptions terse and let the prompt do the teaching.
+- **Sonnet 5's introductory pricing ends 2026-08-31.** $2/$10 per MTok becomes
+  $3/$15 — a 50% rise with no code change. Re-measure after that date rather than
+  assuming a regression.
+- **Thinking is on by default on Sonnet 5.** Omitting the `thinking` parameter
+  runs adaptive thinking; on Sonnet 4.6 the same omission meant no thinking at
+  all. `generate.ts` omits it, so generation is paying for thinking tokens.
+  `thinking: { type: 'disabled' }` is the single largest remaining lever on
+  output cost — measure the sprite and rule quality before taking it.
 
 ## Conventions
 
