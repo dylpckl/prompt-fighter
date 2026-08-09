@@ -1,35 +1,24 @@
 import { useEffect, useRef } from 'react'
-import { SPIRIT_MAX, STAT_MAX } from '@/lib/engine/types'
-import type { Fighter, Stats } from '@/lib/engine/types'
-import { FLAW_HELP, MOVE_HELP, STAT_HELP } from '@/lib/explain'
+import type { Fighter } from '@/lib/engine/types'
+import { faceBars } from '@/lib/engine/face'
+import { FLAW_HELP, MOVE_HELP } from '@/lib/explain'
 import { Hint } from '@/components/Hint'
 import { Sprite } from '@/components/Sprite'
 import { label, panel, t } from '@/theme'
-
-const BODY_ROWS = [
-  ['hp', 'Vitality'],
-  ['atk', 'Attack'],
-  ['def', 'Defense'],
-  ['spd', 'Speed'],
-] as const satisfies ReadonlyArray<readonly [keyof Stats, string]>
-
-const SPIRIT_ROWS = [
-  ['cha', 'Presence'],
-  ['wil', 'Resolve'],
-  ['arc', 'Weirdness'],
-  ['luk', 'Fate'],
-] as const satisfies ReadonlyArray<readonly [keyof Stats, string]>
 
 /** How long the matchup holds before the fight starts. The countdown bar and
  *  the arena's timer both read from here so they can't drift apart. */
 export const PREVIEW_MS = 4200
 
 /**
- * The beat before the bell. One table, read across: your number, the stat, then
+ * The beat before the bell. One table, read across: your bar, the stat, then
  * theirs — so an advantage is visible without holding two stat blocks in your
- * head. Whoever is ahead on a line is the one lit up.
+ * head. Whoever is ahead on a line is the one lit up. Four bars, same as the
+ * card — the spirit bar is each fighter's own peak, so its label isn't shared.
  */
 export function VersusPreview({ a, b }: { a: Fighter; b: Fighter }) {
+  const aBars = faceBars(a.stats)
+  const bBars = faceBars(b.stats)
   return (
     <div style={{ display: 'grid', gap: 10 }}>
       <div className="vs__panel" style={{ ...panel, padding: 14, display: 'grid', gap: 14 }}>
@@ -52,31 +41,14 @@ export function VersusPreview({ a, b }: { a: Fighter; b: Fighter }) {
         </div>
 
         <div style={{ display: 'grid', gap: 7 }}>
-          {BODY_ROWS.map(([key, name]) => (
+          {aBars.map((leftBar, i) => (
             <CompareRow
-              key={key}
-              name={name}
-              help={STAT_HELP[key]}
-              left={a.stats[key]}
-              right={b.stats[key]}
-              max={STAT_MAX}
-            />
-          ))}
-
-          <div style={{ borderTop: `1px solid ${t.line}`, marginTop: 3, paddingTop: 6 }}>
-            <p style={{ ...label, margin: 0, fontSize: 9, color: t.faint, textAlign: 'center' }}>
-              Spirit
-            </p>
-          </div>
-
-          {SPIRIT_ROWS.map(([key, name]) => (
-            <CompareRow
-              key={key}
-              name={name}
-              help={STAT_HELP[key]}
-              left={a.stats[key]}
-              right={b.stats[key]}
-              max={SPIRIT_MAX}
+              key={leftBar.key}
+              leftLabel={leftBar.label}
+              rightLabel={bBars[i].label}
+              left={leftBar.value}
+              right={bBars[i].value}
+              max={leftBar.max}
             />
           ))}
         </div>
@@ -206,51 +178,55 @@ function Corner({ fighter, align = 'left' }: { fighter: Fighter; align?: 'left' 
   )
 }
 
-/** Bars grow inward from each side, so the longer one is the one ahead. */
+/**
+ * Bars grow inward from each side, so the longer one is the one ahead. No raw
+ * numbers here — just each side's own label (they can differ, on the spirit
+ * bar) lit up when that side leads, matching the card's face bars.
+ */
 function CompareRow({
-  name,
-  help,
+  leftLabel,
+  rightLabel,
   left,
   right,
   max,
 }: {
-  name: string
-  help: string
+  leftLabel: string
+  rightLabel: string
   left: number
   right: number
   max: number
 }) {
+  const leftLead = left > right
+  const rightLead = right > left
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <span
         style={{
-          fontSize: 12,
-          width: 18,
+          ...label,
+          fontSize: 9,
+          width: 64,
+          minWidth: 0,
           textAlign: 'right',
           flexShrink: 0,
-          color: left > right ? t.text : t.faint,
+          color: leftLead ? t.text : t.faint,
         }}
       >
-        {left}
+        {leftLabel}
       </span>
-      <Bar value={left} max={max} lead={left > right} align="right" />
-
-      <span
-        style={{ ...label, fontSize: 9, width: 64, textAlign: 'center', flexShrink: 0 }}
-      >
-        <Hint text={help}>{name}</Hint>
-      </span>
-
-      <Bar value={right} max={max} lead={right > left} align="left" />
+      <Bar value={left} max={max} lead={leftLead} align="right" />
+      <Bar value={right} max={max} lead={rightLead} align="left" />
       <span
         style={{
-          fontSize: 12,
-          width: 18,
+          ...label,
+          fontSize: 9,
+          width: 64,
+          minWidth: 0,
+          textAlign: 'left',
           flexShrink: 0,
-          color: right > left ? t.text : t.faint,
+          color: rightLead ? t.text : t.faint,
         }}
       >
-        {right}
+        {rightLabel}
       </span>
     </div>
   )
