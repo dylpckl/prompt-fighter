@@ -46,7 +46,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
     // driving the record of — somebody else's fighter. Same rule as /api/fight.
     const { data: fighter, error: fighterError } = await db
       .from('fighters')
-      .select('id')
+      .select('id, name, dead_at')
       .eq('id', fighterId)
       .eq('session_id', sessionId)
       .maybeSingle()
@@ -54,6 +54,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
     if (fighterError) throw fighterError
     if (!fighter) {
       return NextResponse.json({ error: "That fighter isn't yours." }, { status: 404 })
+    }
+    if (fighter.dead_at) {
+      return NextResponse.json({ error: `${fighter.name} is dead. Build someone new.` }, { status: 409 })
     }
 
     for (let attempt = 0; attempt < SEAT_ATTEMPTS; attempt++) {

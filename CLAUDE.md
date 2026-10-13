@@ -85,6 +85,16 @@ daily cap (`GENERATIONS_PER_DAY`). Counting inserted fighters by `session_id`
 let anyone loop for free: the session is browser-invented, and refused prompts
 never insert.
 
+## Only the challenger loses lives
+
+A fighter has three lives (`MAX_LIVES`). `record_bout` spends one only when the
+fighter that *started* the fight loses, and banks a single edit. A fighter
+picked as a ghost still moves its record and Elo but never dies off screen —
+the owner has to be there. The dead are excluded from `pick_ghost`, refused by
+`/api/fight` and room joins, and checked again under the row lock in
+`record_bout`. An edit is spent with a conditional UPDATE before the model call
+and refunded if generation fails; the name never changes across versions.
+
 ## Model and cost
 
 Generation is one `claude-sonnet-5` call per fighter at `effort: 'low'` with

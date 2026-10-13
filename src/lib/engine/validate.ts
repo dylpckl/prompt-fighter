@@ -164,7 +164,32 @@ export function hydrateFighter(row: unknown): Fighter {
     stats: normalizeStats(raw.stats),
     favorites: normalizeFavorites(raw.favorites),
     rating: normalizeRating(raw.rating),
+    lives_lost: normalizeCount(raw.lives_lost),
+    edits_available: Math.min(1, normalizeCount(raw.edits_available)),
+    version: Math.max(1, normalizeCount(raw.version)),
+    dead_at: typeof raw.dead_at === 'string' ? raw.dead_at : null,
   }
+}
+
+/** A non-negative whole number, or 0. Covers rows read before migration 0007. */
+function normalizeCount(input: unknown): number {
+  const n = Math.floor(Number(input))
+  return Number.isFinite(n) ? Math.max(0, n) : 0
+}
+
+export type PromptSlot = (typeof PROMPT_SLOTS)[number]
+
+/** One slot and its replacement text — the whole of an edit. */
+export function parseEdit(input: unknown): { slot: PromptSlot; text: string } {
+  const raw = (input ?? {}) as Record<string, unknown>
+  if (!PROMPT_SLOTS.includes(raw.slot as never)) throw new ValidationError('Pick a slot to change.')
+  const slot = raw.slot as PromptSlot
+  const text = typeof raw.text === 'string' ? raw.text.trim() : ''
+  if (!text) throw new ValidationError(`"${slot}" can't be empty.`)
+  if (text.length > PROMPT_MAX_CHARS) {
+    throw new ValidationError(`"${slot}" is over ${PROMPT_MAX_CHARS} characters.`)
+  }
+  return { slot, text }
 }
 
 /**
@@ -177,8 +202,7 @@ export function hydrateFighter(row: unknown): Fighter {
  * Absent reads as no support, which is what an unfavorited fighter is.
  */
 export function normalizeFavorites(input: unknown): number {
-  const n = Math.floor(Number(input))
-  return Number.isFinite(n) ? Math.max(0, n) : 0
+  return normalizeCount(input)
 }
 
 /** A row read before migration 0006 has no rating; it reads as unrated. */

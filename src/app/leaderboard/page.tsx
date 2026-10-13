@@ -92,7 +92,9 @@ export default function LeaderboardPage() {
                   {i + 1}
                 </span>
 
-                <Sprite sprite={f.sprite} scale={3} idle={false} />
+                <span style={{ opacity: f.dead_at ? 0.35 : 1, filter: f.dead_at ? 'grayscale(1)' : undefined }}>
+                  <Sprite sprite={f.sprite} scale={3} idle={false} />
+                </span>
 
                 <span style={{ display: 'grid', gap: 3, minWidth: 0, flex: 1 }}>
                   <span
@@ -126,6 +128,7 @@ export default function LeaderboardPage() {
                 <span style={{ display: 'grid', gap: 3, justifyItems: 'end', flexShrink: 0 }}>
                   <span style={{ fontSize: 15, fontFamily: t.mono, color: t.text }}>{f.rating}</span>
                   <span style={{ ...label, fontSize: 9, color: t.faint }}>
+                    {f.dead_at && <span style={{ color: t.accent }}>Dead · </span>}
                     {f.wins}–{f.losses}
                     {f.favorites > 0 && ` · ${f.favorites} fav`}
                   </span>

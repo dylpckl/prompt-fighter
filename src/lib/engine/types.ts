@@ -99,6 +99,14 @@ export interface Fighter extends FighterCore {
   losses: number
   /** Elo, starting at ${RATING_DEFAULT}. Moves only on server-matched fights. */
   rating: number
+  /** Losses in fights this fighter started. ${MAX_LIVES} and it's dead. */
+  lives_lost: number
+  /** 0 or 1. Banked by a lost life, spent on a one-slot rebuild. */
+  edits_available: number
+  /** 1 at creation, +1 per edit. */
+  version: number
+  /** Set on the losing fight that took the last life. The dead don't fight. */
+  dead_at: string | null
   /**
    * Required here, optional on `FighterCore`. A stored fighter always has a
    * count — `hydrateFighter` fills it in even for rows that predate the column —
@@ -160,6 +168,8 @@ export const SPIRIT_DEFAULT = 5
 export const SPRITE_SIZE = 16
 /** Every fighter's Elo before its first fight. Mirrors the column default. */
 export const RATING_DEFAULT = 1000
+/** Losses a fighter survives in fights it started, minus one. */
+export const MAX_LIVES = 3
 export const PALETTE_SIZE = 8
 /** Actions banked before the signature fires. Mirrors the sim; drives the UI. */
 export const METER_TO_SPECIAL = 3

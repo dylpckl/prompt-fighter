@@ -4,6 +4,7 @@ import type { FightResult } from '@/lib/api'
 import { VICTORY_LABELS, victoryText } from '@/lib/engine/victory'
 import { FightStage, stageSide } from '@/components/FightStage'
 import { PREVIEW_MS, VersusPreview } from '@/screens/VersusPreview'
+import { Lives } from '@/components/Lives'
 import { button, label, panel, t } from '@/theme'
 
 const FIRST_BEAT_MS = 550
@@ -14,6 +15,7 @@ interface Props {
   result: FightResult
   onAgain: () => void
   onRebuild: () => void
+  onEdit: () => void
   busy: boolean
   error: string | null
 }
@@ -23,8 +25,9 @@ interface Props {
  * setTimeout and hands the number to the shared stage. Bracket mode renders the
  * same stage off the server clock instead; nothing about the picture differs.
  */
-export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props) {
-  const { log, opponent, maxHp, winner, victory } = result
+export function Arena({ player, result, onAgain, onRebuild, onEdit, busy, error }: Props) {
+  const { log, opponent, maxHp, winner, victory, you } = result
+  const dead = you.dead_at !== null
   const [step, setStep] = useState(0)
   /** The matchup gets a beat before the bell. Solo only — a bracket broadcast
    *  derives its beat from the server clock, so a local pause would desync it. */
@@ -96,18 +99,60 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
                   playerWon ? opponent.name : player.name,
                 )}
               </p>
+              <div
+                style={{
+                  marginTop: 10,
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Lives lost={you.lives_lost} />
+                <span style={{ ...label, color: dead ? t.accent : t.dim }}>
+                  {dead
+                    ? `${player.name} is out of the game`
+                    : playerWon
+                      ? 'Lives intact'
+                      : you.edits_available > 0
+                        ? 'Lost a life · edit earned'
+                        : 'Lost a life'}
+                </span>
+              </div>
             </div>
 
             {error && <p style={{ margin: 0, fontSize: 13, color: t.accent }}>{error}</p>}
 
-            <div className="arena__actions">
-              <button onClick={onAgain} disabled={busy} style={button()}>
-                {busy ? 'Finding…' : 'Fight again'}
-              </button>
-              <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
-                Build someone new
-              </button>
-            </div>
+            {dead ? (
+              <div className="arena__actions">
+                <button onClick={onRebuild} style={{ ...button(), gridColumn: '1 / -1' }}>
+                  Build someone new
+                </button>
+              </div>
+            ) : (
+              <div className="arena__actions">
+                {you.edits_available > 0 && (
+                  <button
+                    onClick={onEdit}
+                    disabled={busy}
+                    style={{ ...button('ghost'), color: t.warn, borderColor: t.warn }}
+                  >
+                    Use your edit
+                  </button>
+                )}
+                <button onClick={onAgain} disabled={busy} style={button()}>
+                  {busy ? 'Finding…' : 'Fight again'}
+                </button>
+                {/* Two buttons is what the pinned bar has room for. With an edit
+                    on offer, building someone new can wait — it's in the nav. */}
+                {you.edits_available === 0 && (
+                  <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
+                    Build someone new
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
         </div>

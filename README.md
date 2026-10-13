@@ -10,7 +10,11 @@ moves, a flaw and a 16×16 sprite, and it fights someone else's.
    structured output.
 3. **Fight** — you're matched against a ghost: a fighter someone else built.
    The fight resolves on the server; the client replays the turn log.
-4. **Rank** — both fighters' records and Elo move. The leaderboard ranks by Elo.
+4. **Lose, edit, die** — a fighter has three lives. Losing a fight you started
+   costs one and banks an edit: change one slot and the fighter is regenerated
+   as its next version, same name. The third loss kills it. Ghosts never lose
+   lives — nobody dies while their owner is away.
+5. **Rank** — both fighters' records and Elo move. The leaderboard ranks by Elo.
 
 **Rooms**: share a four-character code, everyone enters a fighter, and a
 bracket plays out on everyone's screen at once. **Favorites**: everyone gets one
@@ -59,7 +63,7 @@ src/lib/engine/       types, rng, sim, victory, narration, validation, generatio
 src/lib/server/       service-role client, Anthropic call, client-key hashing, row projection
 src/components/       sprite canvas, stat block, fight stage
 src/screens/          builder, reveal, arena, lobby, bracket, broadcast
-supabase/migrations/  schema, grants, spirit backfill, brackets, favorites, limits + Elo
+supabase/migrations/  schema, grants, spirit backfill, brackets, favorites, limits + Elo, lives
 tests/                sim, victory, bracket, favorites, validation, projection
 ```
 
@@ -113,7 +117,8 @@ stale `SUPABASE_ACCESS_TOKEN` — the CLI prefers it.
 - Identity is an anonymous UUID in `localStorage`. Clearing it orphans your
   fighters.
 - Generation is rate-limited per attempt (refused prompts count): 10/hour per
-  session, 30/hour per client IP, `GENERATIONS_PER_DAY` overall.
+  session, 30/hour per client IP, `GENERATIONS_PER_DAY` overall. Edits share
+  the same budget.
 - Unsafe prompts are caught by a `safe` flag in the generation output and never
   enter the pool.
 - `create-fighter` has `maxDuration = 60`; generation runs at `effort: 'low'`

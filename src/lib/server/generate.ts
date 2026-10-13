@@ -1,8 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-import { FIGHTER_SCHEMA, SYSTEM_PROMPT, buildUserPrompt } from '@/lib/engine/generation'
+import { FIGHTER_SCHEMA, SYSTEM_PROMPT } from '@/lib/engine/generation'
 import { ValidationError } from '@/lib/engine/validate'
-import type { FighterPrompts } from '@/lib/engine/types'
 
 // Sonnet 5 holds up on sprites and names, including on prompts that try to
 // cheat. Haiku 4.5 was the false economy — illegible sprites, and it rejects
@@ -44,7 +43,8 @@ function extractJson(content: Array<{ type: string; text?: string }>): Generated
   }
 }
 
-export async function generateFighter(prompts: FighterPrompts): Promise<Generated> {
+/** `userPrompt` is `buildUserPrompt` for a new fighter, `buildEditPrompt` for an edit. */
+export async function generateFighter(userPrompt: string): Promise<Generated> {
   const params = {
     model: MODEL,
     max_tokens: 16000,
@@ -63,7 +63,7 @@ export async function generateFighter(prompts: FighterPrompts): Promise<Generate
       effort: 'low',
       format: { type: 'json_schema', schema: FIGHTER_SCHEMA },
     },
-    messages: [{ role: 'user' as const, content: buildUserPrompt(prompts) }],
+    messages: [{ role: 'user' as const, content: userPrompt }],
   }
 
   // Server-side fallbacks re-serve a classifier refusal on a substitute model

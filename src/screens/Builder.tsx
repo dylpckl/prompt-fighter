@@ -3,7 +3,7 @@ import { PROMPT_MAX_CHARS } from '@/lib/engine/types'
 import type { FighterPrompts } from '@/lib/engine/types'
 import { button, label, panel, t } from '@/theme'
 
-const SLOTS = [
+export const SLOTS = [
   { key: 'body', title: 'Body', hint: 'What is it made of? What shape does it take?' },
   { key: 'weapon', title: 'Weapon', hint: 'What does it fight with?' },
   { key: 'move', title: 'Signature move', hint: 'The one it saves for when the meter fills.' },
@@ -112,7 +112,7 @@ export function Builder({ onSubmit, busy, error }: Props) {
   )
 }
 
-function Forging({ seconds }: { seconds: number }) {
+export function Forging({ seconds }: { seconds: number }) {
   return (
     <div style={{ display: 'grid', gap: 8, animation: 'fadeUp 200ms ease-out' }}>
       <div

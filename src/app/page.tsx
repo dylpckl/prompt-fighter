@@ -3,16 +3,17 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Fighter, FighterPrompts } from '@/lib/engine/types'
-import { createFighter, fetchFighter, requestFight, type FightResult } from '@/lib/api'
+import { createFighter, editFighter, fetchFighter, requestFight, type FightResult } from '@/lib/api'
 import { getSessionId, getStoredFighterId, setStoredFighterId } from '@/lib/session'
 import { getReturnRoom, setReturnRoom } from '@/components/roomReturn'
 import { Builder } from '@/screens/Builder'
 import { Reveal } from '@/screens/Reveal'
 import { Arena } from '@/screens/Arena'
+import { Edit } from '@/screens/Edit'
 import { RoomEntry } from '@/screens/RoomEntry'
 import { button, label, panel, t } from '@/theme'
 
-type Screen = 'loading' | 'build' | 'reveal' | 'arena' | 'rooms'
+type Screen = 'loading' | 'build' | 'reveal' | 'arena' | 'rooms' | 'edit'
 
 function message(err: unknown): string {
   return err instanceof Error ? err.message : 'Something went wrong.'
@@ -54,7 +55,9 @@ function Game() {
       setScreen('build')
       return
     }
-    fetchFighter(stored)
+    // With the session, our own fighter comes back with its prompts — the edit
+    // screen starts from them.
+    fetchFighter(stored, getSessionId())
       .then((found) => {
         if (cancelled) return
         if (found) {
@@ -80,7 +83,7 @@ function Game() {
       try {
         const { fighter: made } = await createFighter(getSessionId(), prompts)
         setStoredFighterId(made.id)
-        setFighter(made)
+        setFighter({ ...made, prompts })
         setResult(null)
         setScreen('reveal')
         // They only came here to get into a room. Hand them straight back.
@@ -112,7 +115,7 @@ function Game() {
               ...f,
               wins: f.wins + (fight.winner === 'a' ? 1 : 0),
               losses: f.losses + (fight.winner === 'b' ? 1 : 0),
-              rating: fight.rating.a,
+              ...fight.you,
             }
           : f,
       )
@@ -145,6 +148,30 @@ function Game() {
     setError(null)
     setScreen('build')
   }, [])
+
+  const handleOpenEdit = useCallback(() => {
+    setError(null)
+    setScreen('edit')
+  }, [])
+
+  const handleEdit = useCallback(
+    async (slot: keyof FighterPrompts, text: string) => {
+      if (!fighter) return
+      setBusy(true)
+      setError(null)
+      try {
+        const { fighter: rebuilt } = await editFighter(getSessionId(), fighter.id, slot, text)
+        setFighter(rebuilt)
+        setResult(null)
+        setScreen('reveal')
+      } catch (err) {
+        setError(message(err))
+      } finally {
+        setBusy(false)
+      }
+    },
+    [fighter],
+  )
 
   const handleRooms = useCallback(() => {
     setError(null)
@@ -191,6 +218,20 @@ function Game() {
           onFight={handleFight}
           onRooms={handleRooms}
           onRebuild={handleRebuild}
+          onEdit={handleOpenEdit}
+          busy={busy}
+          error={error}
+        />
+      )}
+
+      {screen === 'edit' && fighter && (
+        <Edit
+          fighter={fighter}
+          onSubmit={handleEdit}
+          onCancel={() => {
+            setError(null)
+            setScreen('reveal')
+          }}
           busy={busy}
           error={error}
         />
@@ -210,6 +251,7 @@ function Game() {
           result={result}
           onAgain={handleFight}
           onRebuild={handleRebuild}
+          onEdit={handleOpenEdit}
           busy={busy}
           error={error}
         />

@@ -21,7 +21,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseAdmin()
       .from('fighters')
-      .select('id, name, title, sprite, wins, losses, rating, favorites')
+      .select('id, name, title, sprite, wins, losses, rating, favorites, lives_lost, version, dead_at')
       .or('wins.gt.0,losses.gt.0')
       .order('rating', { ascending: false })
       .order('wins', { ascending: false })

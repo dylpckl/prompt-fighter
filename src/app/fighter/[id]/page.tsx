@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Sprite } from '@/components/Sprite'
 import { FavoriteButton } from '@/components/FavoriteButton'
 import { FighterPanel } from '@/components/FighterPanel'
+import { Lives } from '@/components/Lives'
 import { fetchFighter, fetchMyFighters } from '@/lib/api'
 import { getSessionId, setStoredFighterId } from '@/lib/session'
 import type { Fighter } from '@/lib/engine/types'
@@ -90,6 +91,7 @@ function FighterDetail() {
 
   const fights = fighter.wins + fighter.losses
   const isMine = mine.has(fighter.id)
+  const dead = fighter.dead_at !== null
 
   return (
     <div className="shell" style={{ display: 'grid', gap: 12 }}>
@@ -125,11 +127,31 @@ function FighterDetail() {
             justifyContent: 'center',
           }}
         >
-          <Sprite sprite={fighter.sprite} scale={7} />
+          <div style={{ opacity: dead ? 0.35 : 1, filter: dead ? 'grayscale(1)' : undefined }}>
+            <Sprite sprite={fighter.sprite} scale={7} idle={!dead} />
+          </div>
         </div>
       </div>
 
       <FighterPanel fighter={fighter} />
+
+      <div
+        style={{
+          ...panel,
+          padding: 14,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          borderColor: dead ? t.accent : t.line,
+        }}
+      >
+        <span style={{ ...label, margin: 0, color: dead ? t.accent : t.dim }}>
+          {dead ? 'Dead' : 'Lives'}
+          {fighter.version > 1 && <span style={{ color: t.faint }}> · v{fighter.version}</span>}
+        </span>
+        <Lives lost={fighter.lives_lost} />
+      </div>
 
       <div
         style={{
@@ -162,7 +184,7 @@ function FighterDetail() {
 
       <FavoriteButton fighterId={fighter.id} count={fighter.favorites} />
 
-      {isMine && (
+      {isMine && !dead && (
         // Straight into a fight. Routing to the game screen first only showed
         // this same card again with a Find opponent button on it — a click that
         // told the visitor nothing they weren't already looking at.
