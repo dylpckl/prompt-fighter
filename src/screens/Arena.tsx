@@ -5,6 +5,7 @@ import { VICTORY_LABELS, victoryText } from '@/lib/engine/victory'
 import { FightStage, stageSide } from '@/components/FightStage'
 import { PREVIEW_MS, VersusPreview } from '@/screens/VersusPreview'
 import { Lives } from '@/components/Lives'
+import { PromptSheet } from '@/components/PromptSheet'
 import { button, label, panel, t } from '@/theme'
 
 const FIRST_BEAT_MS = 550
@@ -26,7 +27,7 @@ interface Props {
  * same stage off the server clock instead; nothing about the picture differs.
  */
 export function Arena({ player, result, onAgain, onRebuild, onEdit, busy, error }: Props) {
-  const { log, opponent, maxHp, winner, victory, you } = result
+  const { log, opponent, maxHp, winner, victory, you, killcam } = result
   const dead = you.dead_at !== null
   const [step, setStep] = useState(0)
   /** The matchup gets a beat before the bell. Solo only — a bracket broadcast
@@ -157,6 +158,14 @@ export function Arena({ player, result, onAgain, onRebuild, onEdit, busy, error 
         )}
         </div>
       </div>
+
+      {/* The killcam: what the fighter that beat you was made of. It waits for
+          the result so it can't give the ending away. */}
+      {finished && killcam && (
+        <div className="killcam" style={{ animation: 'fadeUp 260ms ease-out' }}>
+          <PromptSheet heading={`Killcam — how ${opponent.name} was made`} prompts={killcam} accent={t.accent} />
+        </div>
+      )}
     </div>
   )
 }

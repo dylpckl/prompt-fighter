@@ -2,6 +2,8 @@ import type { Fighter } from '@/lib/engine/types'
 import { Sprite } from '@/components/Sprite'
 import { StatBlock } from '@/components/StatBlock'
 import { Lives } from '@/components/Lives'
+import { PromptSheet } from '@/components/PromptSheet'
+import { ShareButton } from '@/components/ShareButton'
 import { button, label, panel, t } from '@/theme'
 
 interface Props {
@@ -67,9 +69,17 @@ export function Reveal({ fighter, onFight, onRooms, onRebuild, onEdit, busy, err
           <p style={{ margin: 0, fontSize: 14, color: t.dim, lineHeight: 1.5, textAlign: 'center' }}>
             {fighter.name} lost three of its own fights and is out of the game.
           </p>
+          {fighter.prompts && (
+            <PromptSheet heading={`Obituary — what ${fighter.name} was made of`} prompts={fighter.prompts} />
+          )}
           <button onClick={onRebuild} style={button()}>
             Build someone new
           </button>
+          <ShareButton
+            path={`/fighter/${fighter.id}`}
+            text={`${fighter.name} is dead. This is what it was made of.`}
+            labelText="Share the obituary"
+          />
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 10 }}>

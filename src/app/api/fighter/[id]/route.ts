@@ -34,10 +34,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!data) return NextResponse.json({ error: 'No such fighter.' }, { status: 404 })
 
     // hydrateFighter strips session_id and prompts. The owner gets their own
-    // prompts back — the edit screen starts from them — and nobody else does.
+    // prompts back — the edit screen starts from them. Everyone gets a dead
+    // fighter's: the obituary is where the prompts finally go public.
     const row = data as unknown as { session_id: string; prompts: unknown }
     const fighter = hydrateFighter(data)
-    if (sessionId && row.session_id === sessionId) {
+    if (fighter.dead_at || (sessionId && row.session_id === sessionId)) {
       return NextResponse.json({ fighter: { ...fighter, prompts: row.prompts } })
     }
     return NextResponse.json({ fighter })

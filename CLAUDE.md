@@ -85,6 +85,13 @@ daily cap (`GENERATIONS_PER_DAY`). Counting inserted fighters by `session_id`
 let anyone loop for free: the session is browser-invented, and refused prompts
 never insert.
 
+## Prompts are private, with three deliberate exceptions
+
+`PUBLIC_FIGHTER_COLUMNS` leaves `prompts` out. They go to the owner (edit
+screen), to the player who just lost to that fighter (the killcam in
+`/api/fight`), and to everyone once the fighter is dead (the obituary). Adding a
+fourth is a product decision, not a refactor.
+
 ## Only the challenger loses lives
 
 A fighter has three lives (`MAX_LIVES`). `record_bout` spends one only when the

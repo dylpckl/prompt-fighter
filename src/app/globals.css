@@ -175,9 +175,6 @@ canvas {
   .arena__log {
     grid-area: log;
   }
-  .arena__tail {
-    grid-area: tail;
-  }
 }
 
 /* Shorter on a phone so the log and buttons clear the fold. */
@@ -279,6 +276,23 @@ canvas {
 
   .arena__actions {
     grid-template-columns: 1fr;
+  }
+}
+
+/* The killcam sits under the fight. On a phone the result bar is pinned over
+   the bottom of the screen and is taller than the arena's reserve once the
+   result is showing, so the killcam carries its own clearance. */
+.killcam {
+  width: 100%;
+  max-width: 640px;
+  /* The negative top margin takes back the arena's own reserve, which only
+     exists for the bar and would otherwise leave a hole above the killcam. */
+  margin: -136px auto 220px;
+}
+
+@media (min-width: 900px) {
+  .killcam {
+    margin: 0 auto;
   }
 }
 

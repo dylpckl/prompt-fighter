@@ -7,7 +7,7 @@ import { simulate } from '@/lib/engine/sim'
 import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
 import { ValidationError, hydrateFighter, parseUuid } from '@/lib/engine/validate'
 import { MAX_LIVES } from '@/lib/engine/types'
-import type { Fighter, FighterCore } from '@/lib/engine/types'
+import type { Fighter, FighterCore, FighterPrompts } from '@/lib/engine/types'
 
 export const runtime = 'nodejs'
 
@@ -107,6 +107,9 @@ export async function POST(req: Request) {
         dead_at: bout.dead_at,
       },
       opponent: toPublicFighter({ ...opponent, rating: bout.opponent_rating }),
+      // The killcam: lose, and you get to read what beat you. Only the
+      // prompts — never the rest of the raw row, which carries session_id.
+      killcam: result.winner === 'b' ? ((rawOpponent as { prompts?: FighterPrompts }).prompts ?? null) : null,
     })
   } catch (err) {
     if (err instanceof ValidationError) {

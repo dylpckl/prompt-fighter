@@ -4,6 +4,8 @@ import type { VictoryType } from '@/lib/engine/victory'
 export interface FightResult extends SimResult {
   opponent: Fighter
   seed: number
+  /** The winner's prompts, when you lost. Null when you won. */
+  killcam: FighterPrompts | null
   /** Your fighter after this bout. Only the challenger's lives ever move. */
   you: Pick<Fighter, 'rating' | 'lives_lost' | 'edits_available' | 'dead_at'>
 }

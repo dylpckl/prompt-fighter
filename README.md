@@ -14,6 +14,9 @@ moves, a flaw and a 16×16 sprite, and it fights someone else's.
    costs one and banks an edit: change one slot and the fighter is regenerated
    as its next version, same name. The third loss kills it. Ghosts never lose
    lives — nobody dies while their owner is away.
+   - **Killcam** — lose, and you see the four prompts that beat you.
+   - **Obituary** — a dead fighter's prompts go public on its page, with a
+     share link whose preview shows the sprite.
 5. **Rank** — both fighters' records and Elo move. The leaderboard ranks by Elo.
 
 **Rooms**: share a four-character code, everyone enters a fighter, and a

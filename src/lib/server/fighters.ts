@@ -6,8 +6,10 @@
  * roster by it. Anyone holding another player's `session_id` can fight with
  * their fighter and move its record. It must never be serialised to a client.
  *
- * `prompts` are the player's own writing and nothing in the UI renders another
- * fighter's, so they stay server-side too.
+ * `prompts` are the player's own writing, so they stay out of the projection
+ * too. They leave the server in exactly three places, each chosen on purpose:
+ * to the owner (the edit screen), to whoever just lost to the fighter (the
+ * killcam, /api/fight), and to everyone once it is dead (the obituary).
  */
 export const PUBLIC_FIGHTER_COLUMNS =
   'id, name, title, stats, moves, flaw, sprite, wins, losses, rating, favorites, lives_lost, edits_available, version, dead_at, created_at'

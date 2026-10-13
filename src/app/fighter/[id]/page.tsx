@@ -7,6 +7,8 @@ import { Sprite } from '@/components/Sprite'
 import { FavoriteButton } from '@/components/FavoriteButton'
 import { FighterPanel } from '@/components/FighterPanel'
 import { Lives } from '@/components/Lives'
+import { PromptSheet } from '@/components/PromptSheet'
+import { ShareButton } from '@/components/ShareButton'
 import { fetchFighter, fetchMyFighters } from '@/lib/api'
 import { getSessionId, setStoredFighterId } from '@/lib/session'
 import type { Fighter } from '@/lib/engine/types'
@@ -153,6 +155,11 @@ function FighterDetail() {
         <Lives lost={fighter.lives_lost} />
       </div>
 
+      {/* A dead fighter's prompts are public — the obituary is the reveal. */}
+      {dead && fighter.prompts && (
+        <PromptSheet heading={`Obituary — what ${fighter.name} was made of`} prompts={fighter.prompts} />
+      )}
+
       <div
         style={{
           ...panel,
@@ -198,6 +205,12 @@ function FighterDetail() {
           Find opponent
         </button>
       )}
+
+      <ShareButton
+        path={`/fighter/${fighter.id}`}
+        text={dead ? `${fighter.name} is dead. This is what it was made of.` : `${fighter.name}, ${fighter.title}`}
+        labelText={dead ? 'Share the obituary' : 'Share'}
+      />
 
       <button onClick={() => router.push(backHref)} style={button('ghost')}>
         {backLabel}
