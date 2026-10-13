@@ -112,6 +112,7 @@ function Game() {
               ...f,
               wins: f.wins + (fight.winner === 'a' ? 1 : 0),
               losses: f.losses + (fight.winner === 'b' ? 1 : 0),
+              rating: fight.rating.a,
             }
           : f,
       )

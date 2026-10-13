@@ -115,7 +115,7 @@ async function startFight(
   Object.assign(match, row)
 
   // Deliberately no `record_result` here. Bracket mode is the one place a caller
-  // picks *both* sides of a fight, and the public leaderboard ranks on `wins`:
+  // picks *both* sides of a fight, and the public leaderboard ranks on Elo:
   // opening a room, seating your strong fighter against one you built to lose,
   // and starting it is a guaranteed win you can repeat for as long as you like,
   // with no model call and nothing the server chose. /api/fight is safe from

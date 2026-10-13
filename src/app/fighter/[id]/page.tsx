@@ -142,6 +142,12 @@ function FighterDetail() {
       >
         <span style={{ ...label, margin: 0 }}>Record</span>
         <span style={{ fontSize: 14, fontFamily: t.mono }}>
+          {fights > 0 && (
+            <>
+              <span style={{ color: t.text }}>{fighter.rating}</span>
+              <span style={{ color: t.faint }}> · </span>
+            </>
+          )}
           <span style={{ color: fighter.wins > 0 ? t.good : t.faint }}>{fighter.wins}W</span>
           <span style={{ color: t.faint }}> · </span>
           <span style={{ color: fighter.losses > 0 ? t.accent : t.faint }}>{fighter.losses}L</span>

@@ -4,6 +4,8 @@ import type { VictoryType } from '@/lib/engine/victory'
 export interface FightResult extends SimResult {
   opponent: Fighter
   seed: number
+  /** Both fighters' Elo after this bout. */
+  rating: Record<'a' | 'b', number>
 }
 
 /** What the roster needs to draw a row — not the whole fighter. */
@@ -14,6 +16,7 @@ export interface RosterEntry {
   sprite: Sprite
   wins: number
   losses: number
+  rating: number
   /** How many players hold this as their one favorite. */
   favorites: number
   /** Present on the roster, absent on the leaderboard — neither view shows it. */

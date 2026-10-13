@@ -40,7 +40,7 @@ export default function LeaderboardPage() {
       <div>
         <h1 style={{ margin: 0, fontSize: 22, letterSpacing: '-0.01em' }}>Leaderboard</h1>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: t.dim, lineHeight: 1.5 }}>
-          Ranked by wins. Everyone here is someone&rsquo;s ghost.
+          Ranked by Elo. Everyone here is someone&rsquo;s ghost.
           {entries && entries.length > 0 && total > entries.length
             ? ` Showing the top ${entries.length} of ${total} who have fought.`
             : ''}
@@ -63,8 +63,6 @@ export default function LeaderboardPage() {
         <div style={{ display: 'grid', gap: 8 }}>
           {entries.map((f, i) => {
             const isMine = f.id === mineId
-            const fights = f.wins + f.losses
-            const rate = fights > 0 ? Math.round((f.wins / fights) * 100) : 0
 
             return (
               <Link
@@ -126,13 +124,10 @@ export default function LeaderboardPage() {
                 </span>
 
                 <span style={{ display: 'grid', gap: 3, justifyItems: 'end', flexShrink: 0 }}>
-                  <span style={{ fontSize: 13, fontFamily: t.mono }}>
-                    <span style={{ color: f.wins > 0 ? t.good : t.faint }}>{f.wins}</span>
-                    <span style={{ color: t.faint }}>–</span>
-                    <span style={{ color: f.losses > 0 ? t.accent : t.faint }}>{f.losses}</span>
-                  </span>
+                  <span style={{ fontSize: 15, fontFamily: t.mono, color: t.text }}>{f.rating}</span>
                   <span style={{ ...label, fontSize: 9, color: t.faint }}>
-                    {rate}%{f.favorites > 0 && ` · ${f.favorites} fav`}
+                    {f.wins}–{f.losses}
+                    {f.favorites > 0 && ` · ${f.favorites} fav`}
                   </span>
                 </span>
               </Link>

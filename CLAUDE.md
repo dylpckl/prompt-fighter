@@ -55,18 +55,42 @@ fails with `Cannot find module './xxx.js'` *and* the dev server starts throwing
 
 ## The schema is the anti-cheat, not the model
 
-Stats must total exactly 30 and effects come from a fixed enum. Both are
-re-normalized server-side in `engine/validate.ts` after the model returns,
-because a JSON schema can express an enum but not "these four numbers sum to
-30". A weaker model returning an illegal spread is fine — it gets corrected.
-Don't move that logic into the prompt.
+Body stats total exactly 30, spirit stats exactly 20, and effects come from a
+fixed enum. All three are re-normalized server-side in `engine/validate.ts`
+after the model returns, because a JSON schema can express an enum but not
+"these four numbers sum to 30". A model returning an illegal spread is fine — it
+gets corrected. Don't move that logic into the prompt.
+
+## New randomness gets its own stream
+
+The sim is `simulate(a, b, seed)`. One extra draw from the sim's `rng` shifts
+every roll after it and silently rewrites every past fight — no test fails.
+Anything new that needs randomness salts the seed and makes its own generator
+(see `PRESSURE_SALT` in `engine/victory.ts`).
+
+## Every migration grants `service_role` explicitly
+
+The service role bypasses RLS but not table privileges, and Supabase's default
+grants only fire for objects created by `postgres`. A new table needs a
+`grant ... to service_role`; a new function needs `revoke execute ... from
+public` plus `grant execute ... to service_role`. Miss it and every route gets
+`42501 permission denied` — but only when applied via CLI/MCP, not the
+dashboard, which is what makes it confusing.
+
+## Model calls are rate-limited by attempt, not by fighter
+
+`claim_generation` (migration 0006) records each attempt *before* the model
+call, keyed on the hashed client address as well as the session, with a global
+daily cap (`GENERATIONS_PER_DAY`). Counting inserted fighters by `session_id`
+let anyone loop for free: the session is browser-invented, and refused prompts
+never insert.
 
 ## Model and cost
 
-Generation is one Opus 5 call per fighter, `effort: 'low'`, ~$0.011 warm /
-~$0.026 cold. `effort` is **rejected outright by Haiku 4.5** — dropping to a
-cheaper tier means removing the parameter, not just changing the id. See
-`/dev/model-comparison` for measured quality and cost per model.
+Generation is one `claude-sonnet-5` call per fighter at `effort: 'low'` with
+structured output ($2 / $10 per MTok). `effort` is **rejected outright by Haiku
+4.5** — dropping to a cheaper tier means removing the parameter, not just
+changing the id.
 
 ## Conventions
 

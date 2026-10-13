@@ -25,7 +25,7 @@ export function Reveal({ fighter, onFight, onRooms, onRebuild, busy, error }: Pr
           <p style={{ margin: 0, fontSize: 13, color: t.dim }}>{fighter.title}</p>
         </div>
         <p style={{ ...label, margin: 0 }}>
-          {fought === 0 ? 'Untested' : `${fighter.wins}W · ${fighter.losses}L`}
+          {fought === 0 ? 'Untested' : `${fighter.rating} · ${fighter.wins}W · ${fighter.losses}L`}
         </p>
       </div>
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/server/supabase'
+import { clientKey } from '@/lib/server/clientKey'
 import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
 import { RefusedError, generateFighter } from '@/lib/server/generate'
 import {
@@ -19,7 +20,19 @@ export const runtime = 'nodejs'
 // cuts the request off.
 export const maxDuration = 60
 
-const FIGHTERS_PER_HOUR = 10
+// Every attempt costs a model call, so these count attempts, not fighters — a
+// refused or unsafe prompt is billed too. See migration 0006.
+const PER_SESSION_PER_HOUR = 10
+// Looser than per-session: a room full of people on one wifi shares an address.
+const PER_CLIENT_PER_HOUR = 30
+// The ceiling on the daily bill, across everyone.
+const PER_DAY = Number(process.env.GENERATIONS_PER_DAY) || 500
+
+const REFUSALS: Record<string, string> = {
+  session: "You've made a lot of fighters. Give it an hour.",
+  client: "You've made a lot of fighters. Give it an hour.",
+  global: 'The forge is closed for today. Come back tomorrow.',
+}
 
 export async function POST(req: Request) {
   try {
@@ -29,17 +42,17 @@ export async function POST(req: Request) {
 
     const db = supabaseAdmin()
 
-    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-    const { count, error: countError } = await db
-      .from('fighters')
-      .select('id', { count: 'exact', head: true })
-      .eq('session_id', sessionId)
-      .gte('created_at', since)
-
-    if (countError) throw countError
-    if ((count ?? 0) >= FIGHTERS_PER_HOUR) {
+    const { data: claim, error: claimError } = await db.rpc('claim_generation', {
+      p_client_key: clientKey(req, sessionId),
+      p_session: sessionId,
+      p_per_session: PER_SESSION_PER_HOUR,
+      p_per_client: PER_CLIENT_PER_HOUR,
+      p_per_day: PER_DAY,
+    })
+    if (claimError) throw claimError
+    if (claim !== 'ok') {
       return NextResponse.json(
-        { error: "You've made a lot of fighters. Give it an hour." },
+        { error: REFUSALS[claim as string] ?? REFUSALS.session },
         { status: 429 },
       )
     }

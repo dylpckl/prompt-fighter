@@ -6,6 +6,7 @@ import { toPublicFighter } from '@/lib/server/fighters'
 import { simulate } from '@/lib/engine/sim'
 import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
 import { ValidationError, hydrateFighter, parseUuid } from '@/lib/engine/validate'
+import { RATING_DEFAULT } from '@/lib/engine/types'
 import type { Fighter, FighterCore } from '@/lib/engine/types'
 
 export const runtime = 'nodejs'
@@ -62,16 +63,29 @@ export async function POST(req: Request) {
     const seed = randomInt(0, 2 ** 31)
     const result = simulate(core(you), core(opponent), seed)
 
-    const { error: recordError } = await db.rpc('record_result', {
+    const { data: rated, error: recordError } = await db.rpc('record_result', {
       winner: result.winner === 'a' ? challenger.id : opponent.id,
       loser: result.winner === 'a' ? opponent.id : challenger.id,
     })
     if (recordError) throw recordError
 
+    const row = (rated as { winner_rating: number; loser_rating: number }[] | null)?.[0]
+    const winnerRating = row?.winner_rating ?? RATING_DEFAULT
+    const loserRating = row?.loser_rating ?? RATING_DEFAULT
+    const rating =
+      result.winner === 'a'
+        ? { a: winnerRating, b: loserRating }
+        : { a: loserRating, b: winnerRating }
+
     // pick_ghost returns `setof public.fighters`, so the opponent arrives with
     // every column — including the session_id that authorises a fight. Without
     // this, one bout hands you a credential for someone else's fighter.
-    return NextResponse.json({ ...result, seed, opponent: toPublicFighter(opponent) })
+    return NextResponse.json({
+      ...result,
+      seed,
+      rating,
+      opponent: toPublicFighter({ ...opponent, rating: rating.b }),
+    })
   } catch (err) {
     if (err instanceof ValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 })

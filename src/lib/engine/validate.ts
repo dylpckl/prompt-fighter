@@ -5,6 +5,7 @@ import {
   PALETTE_SIZE,
   PROMPT_MAX_CHARS,
   PROMPT_SLOTS,
+  RATING_DEFAULT,
   SPIRIT_DEFAULT,
   SPIRIT_KEYS,
   SPIRIT_MAX,
@@ -158,7 +159,12 @@ const PRIVATE_FIGHTER_KEYS = ['session_id', 'prompts'] as const
 export function hydrateFighter(row: unknown): Fighter {
   const raw = { ...((row ?? {}) as Fighter) }
   for (const key of PRIVATE_FIGHTER_KEYS) delete (raw as Record<string, unknown>)[key]
-  return { ...raw, stats: normalizeStats(raw.stats), favorites: normalizeFavorites(raw.favorites) }
+  return {
+    ...raw,
+    stats: normalizeStats(raw.stats),
+    favorites: normalizeFavorites(raw.favorites),
+    rating: normalizeRating(raw.rating),
+  }
 }
 
 /**
@@ -173,6 +179,12 @@ export function hydrateFighter(row: unknown): Fighter {
 export function normalizeFavorites(input: unknown): number {
   const n = Math.floor(Number(input))
   return Number.isFinite(n) ? Math.max(0, n) : 0
+}
+
+/** A row read before migration 0006 has no rating; it reads as unrated. */
+export function normalizeRating(input: unknown): number {
+  const n = Math.round(Number(input))
+  return Number.isFinite(n) ? n : RATING_DEFAULT
 }
 
 function cleanName(input: unknown, fallback: string, maxChars: number): string {

@@ -4,12 +4,14 @@ import {
   hydrateFighter,
   normalizeFlaw,
   normalizeMove,
+  normalizeRating,
   normalizeSprite,
   normalizeStats,
   parsePrompts,
 } from '../src/lib/engine/validate'
 import {
   PALETTE_SIZE,
+  RATING_DEFAULT,
   SPIRIT_DEFAULT,
   SPIRIT_MAX,
   SPIRIT_MIN,
@@ -213,6 +215,23 @@ describe('hydrateFighter', () => {
 
   // The projection itself is covered in tests/fighters.test.ts, next to the
   // constant it asserts about.
+})
+
+describe('normalizeRating', () => {
+  it('reads a pre-0006 row with no rating as unrated', () => {
+    expect(normalizeRating(undefined)).toBe(RATING_DEFAULT)
+    expect(normalizeRating('nope')).toBe(RATING_DEFAULT)
+  })
+
+  it('passes a stored rating through, including one below the start', () => {
+    expect(normalizeRating(1031)).toBe(1031)
+    expect(normalizeRating(912)).toBe(912)
+  })
+
+  it('is filled in by hydrateFighter', () => {
+    expect(hydrateFighter({ stats: {} }).rating).toBe(RATING_DEFAULT)
+    expect(hydrateFighter({ stats: {}, rating: 1100 }).rating).toBe(1100)
+  })
 })
 
 describe('normalizeMove', () => {

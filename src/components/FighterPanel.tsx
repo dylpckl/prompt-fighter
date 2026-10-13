@@ -8,8 +8,8 @@ import { panel, t } from '@/theme'
  */
 export function FighterPanel({ fighter }: { fighter: Fighter }) {
   return (
-    <div style={{ ...panel, padding: 14, display: 'grid', gap: 12 }}>
-      <div>
+    <div style={{ ...panel, padding: 14, display: 'grid', gap: 12, minWidth: 0 }}>
+      <div style={{ minWidth: 0 }}>
         <p
           style={{
             margin: 0,

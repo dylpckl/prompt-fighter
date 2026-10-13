@@ -97,6 +97,8 @@ export interface Fighter extends FighterCore {
   sprite: Sprite
   wins: number
   losses: number
+  /** Elo, starting at ${RATING_DEFAULT}. Moves only on server-matched fights. */
+  rating: number
   /**
    * Required here, optional on `FighterCore`. A stored fighter always has a
    * count — `hydrateFighter` fills it in even for rows that predate the column —
@@ -156,6 +158,8 @@ export const SPIRIT_MAX = 10
 /** 20/4 — the flat spread old rows get backfilled with. */
 export const SPIRIT_DEFAULT = 5
 export const SPRITE_SIZE = 16
+/** Every fighter's Elo before its first fight. Mirrors the column default. */
+export const RATING_DEFAULT = 1000
 export const PALETTE_SIZE = 8
 /** Actions banked before the signature fires. Mirrors the sim; drives the UI. */
 export const METER_TO_SPECIAL = 3
