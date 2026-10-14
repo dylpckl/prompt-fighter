@@ -23,3 +23,10 @@ describe('buildEditPrompt', () => {
     expect(out).toContain('1'.repeat(16))
   })
 })
+
+describe('PROMPT_SLOT_LABELS', () => {
+  it('labels every prompt slot, in order', async () => {
+    const { PROMPT_SLOTS, PROMPT_SLOT_LABELS } = await import('../src/lib/engine/types')
+    expect(PROMPT_SLOT_LABELS.map((s) => s.key)).toEqual([...PROMPT_SLOTS])
+  })
+})

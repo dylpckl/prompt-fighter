@@ -147,8 +147,7 @@ canvas {
     /* Areas rather than order, so the DOM can stay in phone reading order. */
     grid-template-areas:
       'statA field statB'
-      'log   log   log'
-      'tail  tail  tail';
+      'log   log   log';
   }
 
   .arena > * + *,
@@ -238,8 +237,12 @@ canvas {
 }
 
 /* Reserve the pinned bar's space so the log never hides underneath it. */
+:root {
+  --arena-reserve: 148px;
+}
+
 .arena {
-  padding-bottom: 148px;
+  padding-bottom: var(--arena-reserve);
 }
 
 /* Stats are reference material — on a phone they live behind a tap on the
@@ -280,14 +283,14 @@ canvas {
 }
 
 /* The killcam sits under the fight. On a phone the result bar is pinned over
-   the bottom of the screen and is taller than the arena's reserve once the
-   result is showing, so the killcam carries its own clearance. */
+   the bottom of the screen, so the killcam clears it by the bar's measured
+   height (--tail-h, set by Arena). The negative top margin takes back the
+   arena's own reserve, which exists only for the bar and would otherwise leave
+   a hole above the killcam; the 12px left over is the arena's normal gap. */
 .killcam {
   width: 100%;
   max-width: 640px;
-  /* The negative top margin takes back the arena's own reserve, which only
-     exists for the bar and would otherwise leave a hole above the killcam. */
-  margin: -136px auto 220px;
+  margin: calc(12px - var(--arena-reserve)) auto calc(var(--tail-h, 240px) + 16px);
 }
 
 @media (min-width: 900px) {

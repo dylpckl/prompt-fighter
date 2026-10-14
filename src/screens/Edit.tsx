@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { PROMPT_MAX_CHARS } from '@/lib/engine/types'
+import { PROMPT_MAX_CHARS, PROMPT_SLOT_LABELS as SLOTS } from '@/lib/engine/types'
 import type { Fighter, FighterPrompts } from '@/lib/engine/types'
 import { Sprite } from '@/components/Sprite'
-import { Forging, SLOTS } from '@/screens/Builder'
+import { Forging } from '@/screens/Builder'
 import { button, label, panel, t } from '@/theme'
 
 type Slot = keyof FighterPrompts

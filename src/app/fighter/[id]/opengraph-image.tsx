@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { loadPublicFighter } from '@/lib/server/publicFighter'
+import { SPRITE_SIZE } from '@/lib/engine/types'
 import { t } from '@/theme'
 
 export const runtime = 'nodejs'
@@ -31,15 +32,17 @@ export default async function Image({ params }: { params: Promise<{ id: string }
       >
         {fighter && (
           <div style={{ display: 'flex', flexDirection: 'column', opacity: dead ? 0.35 : 1 }}>
-            {fighter.sprite.rows.map((row, y) => (
+            {Array.from({ length: SPRITE_SIZE }, (_, y) => (
               <div key={y} style={{ display: 'flex' }}>
-                {row.split('').map((cell, x) => (
+                {Array.from({ length: SPRITE_SIZE }, (_, x) => fighter.sprite.rows?.[y]?.[x] ?? '0').map((cell, x) => (
                   <div
                     key={x}
                     style={{
                       width: PIXEL,
                       height: PIXEL,
-                      background: cell === '0' ? 'transparent' : fighter.sprite.palette[Number(cell)],
+                      // Same tolerance as components/Sprite.tsx: a short row reads
+                      // as empty, and an index off the palette as magenta.
+                      background: cell === '0' ? 'transparent' : (fighter.sprite.palette?.[Number(cell)] ?? '#ff00ff'),
                     }}
                   />
                 ))}

@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react'
-import { PROMPT_MAX_CHARS } from '@/lib/engine/types'
+import { PROMPT_MAX_CHARS, PROMPT_SLOT_LABELS as SLOTS } from '@/lib/engine/types'
 import type { FighterPrompts } from '@/lib/engine/types'
 import { button, label, panel, t } from '@/theme'
-
-export const SLOTS = [
-  { key: 'body', title: 'Body', hint: 'What is it made of? What shape does it take?' },
-  { key: 'weapon', title: 'Weapon', hint: 'What does it fight with?' },
-  { key: 'move', title: 'Signature move', hint: 'The one it saves for when the meter fills.' },
-  { key: 'flaw', title: 'Flaw', hint: 'Everyone has one. Yours is mandatory.' },
-] as const
 
 const EMPTY: FighterPrompts = { body: '', weapon: '', move: '', flaw: '' }
 

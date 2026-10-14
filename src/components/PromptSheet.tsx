@@ -1,5 +1,5 @@
+import { PROMPT_SLOT_LABELS } from '@/lib/engine/types'
 import type { FighterPrompts } from '@/lib/engine/types'
-import { SLOTS } from '@/screens/Builder'
 import { label, panel, t } from '@/theme'
 
 /**
@@ -19,7 +19,7 @@ export function PromptSheet({
     <div style={{ ...panel, borderColor: accent, padding: 14, display: 'grid', gap: 12, minWidth: 0 }}>
       <p style={{ ...label, margin: 0, color: accent === t.line ? t.dim : accent }}>{heading}</p>
       <dl style={{ margin: 0, display: 'grid', gap: 10 }}>
-        {SLOTS.map(({ key, title }) => (
+        {PROMPT_SLOT_LABELS.map(({ key, title }) => (
           <div key={key} style={{ display: 'grid', gap: 3, minWidth: 0 }}>
             <dt style={{ ...label, color: key === 'flaw' ? t.accent : t.faint }}>{title}</dt>
             <dd style={{ margin: 0, fontSize: 14, lineHeight: 1.45, overflowWrap: 'anywhere' }}>

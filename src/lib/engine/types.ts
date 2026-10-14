@@ -156,6 +156,14 @@ export interface FightResponse extends SimResult {
 }
 
 export const PROMPT_SLOTS = ['body', 'weapon', 'move', 'flaw'] as const
+
+/** What each slot is called on screen, and the nudge the builder shows in it. */
+export const PROMPT_SLOT_LABELS = [
+  { key: 'body', title: 'Body', hint: 'What is it made of? What shape does it take?' },
+  { key: 'weapon', title: 'Weapon', hint: 'What does it fight with?' },
+  { key: 'move', title: 'Signature move', hint: 'The one it saves for when the meter fills.' },
+  { key: 'flaw', title: 'Flaw', hint: 'Everyone has one. Yours is mandatory.' },
+] as const satisfies readonly { key: (typeof PROMPT_SLOTS)[number]; title: string; hint: string }[]
 export const PROMPT_MAX_CHARS = 80
 export const STAT_TOTAL = 30
 export const STAT_MIN = 3

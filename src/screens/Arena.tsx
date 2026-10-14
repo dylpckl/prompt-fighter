@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Fighter } from '@/lib/engine/types'
 import type { FightResult } from '@/lib/api'
 import { VICTORY_LABELS, victoryText } from '@/lib/engine/victory'
@@ -56,8 +56,24 @@ export function Arena({ player, result, onAgain, onRebuild, onEdit, busy, error 
 
   const playerWon = winner === 'a'
 
+  // On a phone the result bar is pinned over the bottom of the screen and its
+  // height depends on what's in it — a long verdict, an error, an extra row.
+  // Anything below the fight has to clear it, so measure it rather than guess.
+  const root = useRef<HTMLDivElement>(null)
+  const tail = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const bar = tail.current
+    const host = root.current
+    if (!bar || !host || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      host.style.setProperty('--tail-h', `${bar.offsetHeight}px`)
+    })
+    observer.observe(bar)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
+    <div ref={root} style={{ display: 'grid', gap: 12 }}>
       {previewing ? (
         <VersusPreview a={player} b={opponent} />
       ) : (
@@ -70,7 +86,7 @@ export function Arena({ player, result, onAgain, onRebuild, onEdit, busy, error 
         />
       )}
 
-      <div className="arena__tail">
+      <div className="arena__tail" ref={tail}>
         <div className="arena__tail-inner">
         {previewing ? (
           <button onClick={() => setPreviewing(false)} style={button()}>
