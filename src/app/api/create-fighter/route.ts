@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 
 import { supabaseAdmin } from '@/lib/server/supabase'
+import { claimGeneration } from '@/lib/server/limits'
 import { PUBLIC_FIGHTER_COLUMNS } from '@/lib/server/fighters'
 import { RefusedError, generateFighter } from '@/lib/server/generate'
+import { buildUserPrompt } from '@/lib/engine/generation'
 import {
   ValidationError,
   hydrateFighter,
@@ -19,8 +21,6 @@ export const runtime = 'nodejs'
 // cuts the request off.
 export const maxDuration = 60
 
-const FIGHTERS_PER_HOUR = 10
-
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}))
@@ -29,22 +29,10 @@ export async function POST(req: Request) {
 
     const db = supabaseAdmin()
 
-    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-    const { count, error: countError } = await db
-      .from('fighters')
-      .select('id', { count: 'exact', head: true })
-      .eq('session_id', sessionId)
-      .gte('created_at', since)
+    const limited = await claimGeneration(db, req, sessionId)
+    if (limited) return limited
 
-    if (countError) throw countError
-    if ((count ?? 0) >= FIGHTERS_PER_HOUR) {
-      return NextResponse.json(
-        { error: "You've made a lot of fighters. Give it an hour." },
-        { status: 429 },
-      )
-    }
-
-    const generated = await generateFighter(prompts)
+    const generated = await generateFighter(buildUserPrompt(prompts))
     if (!generated.safe) {
       return NextResponse.json(
         { error: "That fighter didn't make it past the door. Try something else." },

@@ -6,6 +6,9 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Sprite } from '@/components/Sprite'
 import { FavoriteButton } from '@/components/FavoriteButton'
 import { FighterPanel } from '@/components/FighterPanel'
+import { Lives } from '@/components/Lives'
+import { PromptSheet } from '@/components/PromptSheet'
+import { ShareButton } from '@/components/ShareButton'
 import { fetchFighter, fetchMyFighters } from '@/lib/api'
 import { getSessionId, setStoredFighterId } from '@/lib/session'
 import type { Fighter } from '@/lib/engine/types'
@@ -90,6 +93,7 @@ function FighterDetail() {
 
   const fights = fighter.wins + fighter.losses
   const isMine = mine.has(fighter.id)
+  const dead = fighter.dead_at !== null
 
   return (
     <div className="shell" style={{ display: 'grid', gap: 12 }}>
@@ -125,7 +129,9 @@ function FighterDetail() {
             justifyContent: 'center',
           }}
         >
-          <Sprite sprite={fighter.sprite} scale={7} />
+          <div style={{ opacity: dead ? 0.35 : 1, filter: dead ? 'grayscale(1)' : undefined }}>
+            <Sprite sprite={fighter.sprite} scale={7} idle={!dead} />
+          </div>
         </div>
       </div>
 
@@ -138,10 +144,39 @@ function FighterDetail() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: 12,
+          borderColor: dead ? t.accent : t.line,
+        }}
+      >
+        <span style={{ ...label, margin: 0, color: dead ? t.accent : t.dim }}>
+          {dead ? 'Dead' : 'Lives'}
+          {fighter.version > 1 && <span style={{ color: t.faint }}> · v{fighter.version}</span>}
+        </span>
+        <Lives lost={fighter.lives_lost} />
+      </div>
+
+      {/* A dead fighter's prompts are public — the obituary is the reveal. */}
+      {dead && fighter.prompts && (
+        <PromptSheet heading={`Obituary — what ${fighter.name} was made of`} prompts={fighter.prompts} />
+      )}
+
+      <div
+        style={{
+          ...panel,
+          padding: 14,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
         }}
       >
         <span style={{ ...label, margin: 0 }}>Record</span>
         <span style={{ fontSize: 14, fontFamily: t.mono }}>
+          {fights > 0 && (
+            <>
+              <span style={{ color: t.text }}>{fighter.rating}</span>
+              <span style={{ color: t.faint }}> · </span>
+            </>
+          )}
           <span style={{ color: fighter.wins > 0 ? t.good : t.faint }}>{fighter.wins}W</span>
           <span style={{ color: t.faint }}> · </span>
           <span style={{ color: fighter.losses > 0 ? t.accent : t.faint }}>{fighter.losses}L</span>
@@ -156,7 +191,7 @@ function FighterDetail() {
 
       <FavoriteButton fighterId={fighter.id} count={fighter.favorites} />
 
-      {isMine && (
+      {isMine && !dead && (
         // Straight into a fight. Routing to the game screen first only showed
         // this same card again with a Find opponent button on it — a click that
         // told the visitor nothing they weren't already looking at.
@@ -170,6 +205,12 @@ function FighterDetail() {
           Find opponent
         </button>
       )}
+
+      <ShareButton
+        path={`/fighter/${fighter.id}`}
+        text={dead ? `${fighter.name} is dead. This is what it was made of.` : `${fighter.name}, ${fighter.title}`}
+        labelText={dead ? 'Share the obituary' : 'Share'}
+      />
 
       <button onClick={() => router.push(backHref)} style={button('ghost')}>
         {backLabel}

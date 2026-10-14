@@ -97,6 +97,16 @@ export interface Fighter extends FighterCore {
   sprite: Sprite
   wins: number
   losses: number
+  /** Elo, starting at ${RATING_DEFAULT}. Moves only on server-matched fights. */
+  rating: number
+  /** Losses in fights this fighter started. ${MAX_LIVES} and it's dead. */
+  lives_lost: number
+  /** 0 or 1. Banked by a lost life, spent on a one-slot rebuild. */
+  edits_available: number
+  /** 1 at creation, +1 per edit. */
+  version: number
+  /** Set on the losing fight that took the last life. The dead don't fight. */
+  dead_at: string | null
   /**
    * Required here, optional on `FighterCore`. A stored fighter always has a
    * count — `hydrateFighter` fills it in even for rows that predate the column —
@@ -146,6 +156,14 @@ export interface FightResponse extends SimResult {
 }
 
 export const PROMPT_SLOTS = ['body', 'weapon', 'move', 'flaw'] as const
+
+/** What each slot is called on screen, and the nudge the builder shows in it. */
+export const PROMPT_SLOT_LABELS = [
+  { key: 'body', title: 'Body', hint: 'What is it made of? What shape does it take?' },
+  { key: 'weapon', title: 'Weapon', hint: 'What does it fight with?' },
+  { key: 'move', title: 'Signature move', hint: 'The one it saves for when the meter fills.' },
+  { key: 'flaw', title: 'Flaw', hint: 'Everyone has one. Yours is mandatory.' },
+] as const satisfies readonly { key: (typeof PROMPT_SLOTS)[number]; title: string; hint: string }[]
 export const PROMPT_MAX_CHARS = 80
 export const STAT_TOTAL = 30
 export const STAT_MIN = 3
@@ -156,6 +174,10 @@ export const SPIRIT_MAX = 10
 /** 20/4 — the flat spread old rows get backfilled with. */
 export const SPIRIT_DEFAULT = 5
 export const SPRITE_SIZE = 16
+/** Every fighter's Elo before its first fight. Mirrors the column default. */
+export const RATING_DEFAULT = 1000
+/** Losses a fighter survives in fights it started, minus one. */
+export const MAX_LIVES = 3
 export const PALETTE_SIZE = 8
 /** Actions banked before the signature fires. Mirrors the sim; drives the UI. */
 export const METER_TO_SPECIAL = 3

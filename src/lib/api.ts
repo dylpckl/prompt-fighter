@@ -4,6 +4,10 @@ import type { VictoryType } from '@/lib/engine/victory'
 export interface FightResult extends SimResult {
   opponent: Fighter
   seed: number
+  /** The winner's prompts, when you lost. Null when you won. */
+  killcam: FighterPrompts | null
+  /** Your fighter after this bout. Only the challenger's lives ever move. */
+  you: Pick<Fighter, 'rating' | 'lives_lost' | 'edits_available' | 'dead_at'>
 }
 
 /** What the roster needs to draw a row — not the whole fighter. */
@@ -14,6 +18,10 @@ export interface RosterEntry {
   sprite: Sprite
   wins: number
   losses: number
+  rating: number
+  lives_lost: number
+  version: number
+  dead_at: string | null
   /** How many players hold this as their one favorite. */
   favorites: number
   /** Present on the roster, absent on the leaderboard — neither view shows it. */
@@ -55,6 +63,19 @@ export function requestFight(sessionId: string, fighterId: string): Promise<Figh
   })
 }
 
+/** Spend the banked edit: one slot changes, the fighter is rebuilt as its next version. */
+export function editFighter(
+  sessionId: string,
+  fighterId: string,
+  slot: keyof FighterPrompts,
+  text: string,
+): Promise<{ fighter: Fighter }> {
+  return request(`/api/fighter/${encodeURIComponent(fighterId)}/edit`, {
+    method: 'POST',
+    body: JSON.stringify({ sessionId, slot, text }),
+  })
+}
+
 export function fetchMyFighters(sessionId: string): Promise<{ fighters: RosterEntry[] }> {
   return request(`/api/fighters?sessionId=${encodeURIComponent(sessionId)}`)
 }
@@ -64,9 +85,13 @@ export function fetchLeaderboard(): Promise<{ fighters: RosterEntry[]; total: nu
   return request('/api/leaderboard')
 }
 
-export async function fetchFighter(id: string): Promise<Fighter | null> {
+/** Pass the session to get the fighter's prompts back too — only if it's yours. */
+export async function fetchFighter(id: string, sessionId?: string): Promise<Fighter | null> {
+  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''
   try {
-    const { fighter } = await request<{ fighter: Fighter }>(`/api/fighter/${encodeURIComponent(id)}`)
+    const { fighter } = await request<{ fighter: Fighter }>(
+      `/api/fighter/${encodeURIComponent(id)}${query}`,
+    )
     return fighter
   } catch {
     return null

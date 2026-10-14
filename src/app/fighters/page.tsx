@@ -82,7 +82,9 @@ export default function FightersPage() {
                 }}
               >
                 {/* Still in the list, so no idle bob — twelve bobbing sprites is a lot. */}
-                <Sprite sprite={f.sprite} scale={3} idle={false} />
+                <span style={{ opacity: f.dead_at ? 0.35 : 1, filter: f.dead_at ? 'grayscale(1)' : undefined }}>
+                  <Sprite sprite={f.sprite} scale={3} idle={false} />
+                </span>
 
                 <span style={{ display: 'grid', gap: 3, minWidth: 0, flex: 1 }}>
                   <span
@@ -114,8 +116,14 @@ export default function FightersPage() {
                     <span style={{ color: t.faint }}>–</span>
                     <span style={{ color: f.losses > 0 ? t.accent : t.faint }}>{f.losses}</span>
                   </span>
-                  <span style={{ ...label, fontSize: 9, color: isActive ? t.accent : t.faint }}>
-                    {isActive ? 'Active' : 'W–L'}
+                  <span
+                    style={{
+                      ...label,
+                      fontSize: 9,
+                      color: f.dead_at ? t.accent : isActive ? t.accent : t.faint,
+                    }}
+                  >
+                    {f.dead_at ? 'Dead' : isActive ? 'Active' : 'W–L'}
                   </span>
                 </span>
               </Link>

@@ -4,12 +4,15 @@ import {
   hydrateFighter,
   normalizeFlaw,
   normalizeMove,
+  normalizeRating,
+  parseEdit,
   normalizeSprite,
   normalizeStats,
   parsePrompts,
 } from '../src/lib/engine/validate'
 import {
   PALETTE_SIZE,
+  RATING_DEFAULT,
   SPIRIT_DEFAULT,
   SPIRIT_MAX,
   SPIRIT_MIN,
@@ -213,6 +216,52 @@ describe('hydrateFighter', () => {
 
   // The projection itself is covered in tests/fighters.test.ts, next to the
   // constant it asserts about.
+})
+
+describe('normalizeRating', () => {
+  it('reads a pre-0006 row with no rating as unrated', () => {
+    expect(normalizeRating(undefined)).toBe(RATING_DEFAULT)
+    expect(normalizeRating('nope')).toBe(RATING_DEFAULT)
+  })
+
+  it('passes a stored rating through, including one below the start', () => {
+    expect(normalizeRating(1031)).toBe(1031)
+    expect(normalizeRating(912)).toBe(912)
+  })
+
+  it('is filled in by hydrateFighter', () => {
+    expect(hydrateFighter({ stats: {} }).rating).toBe(RATING_DEFAULT)
+    expect(hydrateFighter({ stats: {}, rating: 1100 }).rating).toBe(1100)
+  })
+})
+
+describe('hydrateFighter — lives', () => {
+  it('reads a pre-0007 row as alive, unedited, on its first version', () => {
+    const f = hydrateFighter({ stats: {} })
+    expect(f.lives_lost).toBe(0)
+    expect(f.edits_available).toBe(0)
+    expect(f.version).toBe(1)
+    expect(f.dead_at).toBeNull()
+  })
+
+  it('never reports more than one banked edit', () => {
+    expect(hydrateFighter({ stats: {}, edits_available: 4 }).edits_available).toBe(1)
+  })
+})
+
+describe('parseEdit', () => {
+  it('takes one known slot and trimmed text', () => {
+    expect(parseEdit({ slot: 'weapon', text: '  a rusty trombone ' })).toEqual({
+      slot: 'weapon',
+      text: 'a rusty trombone',
+    })
+  })
+
+  it('refuses an unknown slot, empty text, and text over the limit', () => {
+    expect(() => parseEdit({ slot: 'name', text: 'x' })).toThrow(ValidationError)
+    expect(() => parseEdit({ slot: 'body', text: '   ' })).toThrow(ValidationError)
+    expect(() => parseEdit({ slot: 'body', text: 'x'.repeat(81) })).toThrow(ValidationError)
+  })
 })
 
 describe('normalizeMove', () => {

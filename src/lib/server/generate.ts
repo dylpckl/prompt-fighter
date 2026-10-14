@@ -1,13 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-import { FIGHTER_SCHEMA, SYSTEM_PROMPT, buildUserPrompt } from '@/lib/engine/generation'
+import { FIGHTER_SCHEMA, SYSTEM_PROMPT } from '@/lib/engine/generation'
 import { ValidationError } from '@/lib/engine/validate'
-import type { FighterPrompts } from '@/lib/engine/types'
 
-// Sonnet 5 over Opus 5: roughly half the cost per fighter with sprites and
-// names that hold up, including on prompts that try to cheat. Haiku was the
-// false economy — illegible sprites, and it rejects `effort` outright, so
-// dropping another tier is not just an id swap.
+// Sonnet 5 holds up on sprites and names, including on prompts that try to
+// cheat. Haiku 4.5 was the false economy — illegible sprites, and it rejects
+// `effort` outright, so dropping a tier is not just an id swap.
 const MODEL = 'claude-sonnet-5'
 
 export interface Generated {
@@ -45,7 +43,8 @@ function extractJson(content: Array<{ type: string; text?: string }>): Generated
   }
 }
 
-export async function generateFighter(prompts: FighterPrompts): Promise<Generated> {
+/** `userPrompt` is `buildUserPrompt` for a new fighter, `buildEditPrompt` for an edit. */
+export async function generateFighter(userPrompt: string): Promise<Generated> {
   const params = {
     model: MODEL,
     max_tokens: 16000,
@@ -64,12 +63,12 @@ export async function generateFighter(prompts: FighterPrompts): Promise<Generate
       effort: 'low',
       format: { type: 'json_schema', schema: FIGHTER_SCHEMA },
     },
-    messages: [{ role: 'user' as const, content: buildUserPrompt(prompts) }],
+    messages: [{ role: 'user' as const, content: userPrompt }],
   }
 
-  // Opus 5's safety classifiers can decline a request outright. Server-side
-  // fallbacks re-serve it on Anthropic's recommended substitute within the same
-  // call; if the beta isn't enabled on this account, retry without it.
+  // Server-side fallbacks re-serve a classifier refusal on a substitute model
+  // within the same call. Not every model or account accepts the beta, so on a
+  // fallback/beta error retry without it.
   let response
   try {
     response = await anthropic().beta.messages.create({

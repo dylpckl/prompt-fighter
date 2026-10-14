@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Fighter } from '@/lib/engine/types'
 import type { FightResult } from '@/lib/api'
 import { VICTORY_LABELS, victoryText } from '@/lib/engine/victory'
 import { FightStage, stageSide } from '@/components/FightStage'
 import { PREVIEW_MS, VersusPreview } from '@/screens/VersusPreview'
+import { Lives } from '@/components/Lives'
+import { PromptSheet } from '@/components/PromptSheet'
 import { button, label, panel, t } from '@/theme'
 
 const FIRST_BEAT_MS = 550
@@ -14,6 +16,7 @@ interface Props {
   result: FightResult
   onAgain: () => void
   onRebuild: () => void
+  onEdit: () => void
   busy: boolean
   error: string | null
 }
@@ -23,8 +26,9 @@ interface Props {
  * setTimeout and hands the number to the shared stage. Bracket mode renders the
  * same stage off the server clock instead; nothing about the picture differs.
  */
-export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props) {
-  const { log, opponent, maxHp, winner, victory } = result
+export function Arena({ player, result, onAgain, onRebuild, onEdit, busy, error }: Props) {
+  const { log, opponent, maxHp, winner, victory, you, killcam } = result
+  const dead = you.dead_at !== null
   const [step, setStep] = useState(0)
   /** The matchup gets a beat before the bell. Solo only — a bracket broadcast
    *  derives its beat from the server clock, so a local pause would desync it. */
@@ -52,8 +56,24 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
 
   const playerWon = winner === 'a'
 
+  // On a phone the result bar is pinned over the bottom of the screen and its
+  // height depends on what's in it — a long verdict, an error, an extra row.
+  // Anything below the fight has to clear it, so measure it rather than guess.
+  const root = useRef<HTMLDivElement>(null)
+  const tail = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const bar = tail.current
+    const host = root.current
+    if (!bar || !host || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => {
+      host.style.setProperty('--tail-h', `${bar.offsetHeight}px`)
+    })
+    observer.observe(bar)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
+    <div ref={root} style={{ display: 'grid', gap: 12 }}>
       {previewing ? (
         <VersusPreview a={player} b={opponent} />
       ) : (
@@ -66,7 +86,7 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
         />
       )}
 
-      <div className="arena__tail">
+      <div className="arena__tail" ref={tail}>
         <div className="arena__tail-inner">
         {previewing ? (
           <button onClick={() => setPreviewing(false)} style={button()}>
@@ -96,22 +116,72 @@ export function Arena({ player, result, onAgain, onRebuild, busy, error }: Props
                   playerWon ? opponent.name : player.name,
                 )}
               </p>
+              <div
+                style={{
+                  marginTop: 10,
+                  display: 'flex',
+                  gap: 10,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Lives lost={you.lives_lost} />
+                <span style={{ ...label, color: dead ? t.accent : t.dim }}>
+                  {dead
+                    ? `${player.name} is out of the game`
+                    : playerWon
+                      ? 'Lives intact'
+                      : you.edits_available > 0
+                        ? 'Lost a life · edit earned'
+                        : 'Lost a life'}
+                </span>
+              </div>
             </div>
 
             {error && <p style={{ margin: 0, fontSize: 13, color: t.accent }}>{error}</p>}
 
-            <div className="arena__actions">
-              <button onClick={onAgain} disabled={busy} style={button()}>
-                {busy ? 'Finding…' : 'Fight again'}
-              </button>
-              <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
-                Build someone new
-              </button>
-            </div>
+            {dead ? (
+              <div className="arena__actions">
+                <button onClick={onRebuild} style={{ ...button(), gridColumn: '1 / -1' }}>
+                  Build someone new
+                </button>
+              </div>
+            ) : (
+              <div className="arena__actions">
+                {you.edits_available > 0 && (
+                  <button
+                    onClick={onEdit}
+                    disabled={busy}
+                    style={{ ...button('ghost'), color: t.warn, borderColor: t.warn }}
+                  >
+                    Use your edit
+                  </button>
+                )}
+                <button onClick={onAgain} disabled={busy} style={button()}>
+                  {busy ? 'Finding…' : 'Fight again'}
+                </button>
+                {/* Two buttons is what the pinned bar has room for. With an edit
+                    on offer, building someone new can wait — it's in the nav. */}
+                {you.edits_available === 0 && (
+                  <button onClick={onRebuild} disabled={busy} style={button('ghost')}>
+                    Build someone new
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
         </div>
       </div>
+
+      {/* The killcam: what the fighter that beat you was made of. It waits for
+          the result so it can't give the ending away. */}
+      {finished && killcam && (
+        <div className="killcam" style={{ animation: 'fadeUp 260ms ease-out' }}>
+          <PromptSheet heading={`Killcam — how ${opponent.name} was made`} prompts={killcam} accent={t.accent} />
+        </div>
+      )}
     </div>
   )
 }

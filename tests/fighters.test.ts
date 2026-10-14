@@ -49,4 +49,8 @@ describe('PUBLIC_FIGHTER_COLUMNS', () => {
     expect(columns).not.toContain('prompts')
     expect(columns).not.toContain('*')
   })
+
+  it('carries the rating the leaderboard and fighter page show', () => {
+    expect(PUBLIC_FIGHTER_COLUMNS.split(',').map((c) => c.trim())).toContain('rating')
+  })
 })

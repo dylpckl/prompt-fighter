@@ -166,3 +166,31 @@ export function buildUserPrompt(prompts: {
     `FLAW: ${prompts.flaw}`,
   ].join('\n')
 }
+
+/**
+ * The user turn for an edit. The fighter lost a life and its owner changed one
+ * slot; the model rebuilds it as the next version of the same character. The
+ * name is kept server-side regardless, and the old sprite goes in so the new
+ * one reads as the same fighter rather than a stranger.
+ */
+export function buildEditPrompt(
+  previous: { name: string; title: string; version: number; sprite: { palette: string[]; rows: string[] } },
+  prompts: { body: string; weapon: string; move: string; flaw: string },
+  changed: 'body' | 'weapon' | 'move' | 'flaw',
+): string {
+  const mark = (slot: typeof changed) => (slot === changed ? ' (CHANGED)' : '')
+  return [
+    `This fighter already exists: ${previous.name}, ${previous.title}. It lost a fight, and its owner changed one slot.`,
+    `Rebuild it as version ${previous.version + 1} of the same character. Keep the name. The title, stats, moves and flaw should follow from all four slots as they read now — let the changed slot drive what is different.`,
+    'Redraw the sprite as the same figure, recognisably, with the change visible. Keep the palette unless the change calls for new colours.',
+    '',
+    `PREVIOUS PALETTE: ${JSON.stringify(previous.sprite.palette)}`,
+    'PREVIOUS SPRITE:',
+    ...previous.sprite.rows,
+    '',
+    `BODY${mark('body')}: ${prompts.body}`,
+    `WEAPON${mark('weapon')}: ${prompts.weapon}`,
+    `SIGNATURE MOVE${mark('move')}: ${prompts.move}`,
+    `FLAW${mark('flaw')}: ${prompts.flaw}`,
+  ].join('\n')
+}
